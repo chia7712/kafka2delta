@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tableInfos>
+    <table name="table">
+        <csvFolder>table</csvFolder>
+        <topic>table</topic>
+        <deltaFolder>table</deltaFolder>
+        <columns>c0,c1,c2,c3,c4,c5,c6,c7,c8,c9</columns>
+        <pks>c0,c1</pks>
+        <types>int,str,str,str,str,str,str,str,str,str</types>
+        <groupBy>c1</groupBy>
+        <partitions>10</partitions>
+    </table>
+</tableInfos>
