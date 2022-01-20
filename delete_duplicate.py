@@ -12,9 +12,10 @@ spark = SparkSession.builder \
     .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
     .getOrCreate()
 # -----------------<main>-----------------#
-df = spark.read.format("delta").load(path)
+all_data = spark.read.format("delta").load(path)
 deltaTable = DeltaTable.forPath(spark, path)
-for row in df.exceptAll(df.orderBy(order_by, ascending=False).drop_duplicates(pks)).collect():
+
+for row in all_data.exceptAll(all_data.orderBy(order_by, ascending=False).drop_duplicates(pks)).collect():
     _conf = " AND ".join(["%s = '%s'" % (_column, row[_column]) for _column in delete_keys])
     if not group_by:
         deltaTable.delete(_conf)
