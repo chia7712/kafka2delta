@@ -9,5 +9,6 @@
         <types>int,str,str,str,str,str,str,str,str,str</types>
         <groupBy>c1</groupBy>
         <partitions>10</partitions>
+        <compact>false</compact>
     </table>
 </tableInfos>

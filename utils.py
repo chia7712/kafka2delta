@@ -14,7 +14,8 @@ def parse_arguments(arg_description):
 
 
 class TableMetadata:
-    def __init__(self, table_name, csv_folder, topic, delta_folder, columns, pks, group_by, partitions, data_types):
+    def __init__(self, table_name, csv_folder, topic, delta_folder, columns, pks, group_by,
+                 partitions, data_types, compact):
         self._table_name = table_name
         self._csv_folder = csv_folder
         self._topic = topic
@@ -24,6 +25,10 @@ class TableMetadata:
         self._group_by = group_by
         self._partitions = partitions
         self._data_types = data_types
+        self._compact = compact
+
+    @property
+    def compact(self): return self._compact
 
     @property
     def data_types(self): return self._data_types
@@ -135,6 +140,10 @@ def read_metadata(path):
         if len(_data_types) != 0 and len(_data_types) != len(_columns):
             raise ValueError(f"length of types {len(_data_types)} is not equal to columns ({len(_columns)})")
 
+        _compact = True
+        if _child.find("compact") is not None and _child.find("compact").text is not None:
+            _compact = _child.find("compact").text.lower() == "true"
+
         # build metadata
         _schemas[_name] = TableMetadata(_name,
                                         _child.find("csvFolder").text,
@@ -144,7 +153,8 @@ def read_metadata(path):
                                         _pks,
                                         _group_by,
                                         _partitions,
-                                        _data_types)
+                                        _data_types,
+                                        _compact)
     return _schemas
 
 

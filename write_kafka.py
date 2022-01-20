@@ -12,11 +12,11 @@ from utils import *
 
 def create_topic(bootstrap_servers, metadata, recreate):
     # By default, Spark has a 1-1 mapping of topicPartitions to Spark partitions. Hence, we pre-partition the topic.
+    _config = {"cleanup.policy": "compact", "max.compaction.lag.ms": "10000"} if metadata.compact else {}
     _new_topic = NewTopic(topic=metadata.topic,
                           num_partitions=metadata.partitions,
                           replication_factor=1,
-                          config={"cleanup.policy": "compact",
-                                  "max.compaction.lag.ms": "10000"})
+                          config=_config)
     _admin = AdminClient({"bootstrap.servers": bootstrap_servers})
 
     # recreate topic
