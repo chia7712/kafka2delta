@@ -27,32 +27,19 @@ max_batch = 500
 
 # -----------------<helpers>-----------------#
 
-def create_spark_session():
-    return SparkSession.builder \
-        .master("spark://192.168.50.16:10134") \
-        .config("spark.driver.memory", "4G") \
-        .config("spark.executor.memory", "6G") \
-        .config("spark.jars.packages", "io.delta:delta-core_2.12:1.0.0,org.apache.hadoop:hadoop-azure:3.2.2") \
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
-        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-        .config("spark.hadoop.fs.azure.account.auth.type.islandadls.dfs.core.windows.net", "SharedKey") \
-        .config("spark.hadoop.fs.azure.account.key.islandadls.dfs.core.windows.net",
-                "LgkUTkCGZGzWrD2G/z0JigFf9Au6UiU5ByBMS8CEKAaYDJnVG5JjrLXqi7mZnykD4gA93Gz6lI4jLiCB3BAwuA==") \
-        .getOrCreate()
-
-
 def cond(row):
     return " AND ".join(["%s = '%s'" % (_column, row[_column]) for _column in row.asDict().keys()])
 
 
-def delete(spark, delta_table, path, group, metadata):
+def delete(spark, delta_table, group, metadata, duplicate_csv_path):
     _final_cond = None
     _batched = 0
     _deleted_rows = 0
     _time_to_delete = 0
-    _all_group = spark.read.format("delta").load(path).filter(f"{metadata.group_by} = '{group}'").cache()
-    _duplicate_group = _all_group.exceptAll(_all_group.orderBy(order_by, ascending=False)
-                                            .drop_duplicates(_metadata.pks))
+    _group_duplicate = spark.read \
+        .schema(struct_type(metadata)) \
+        .option("recursiveFileLookup", "true") \
+        .csv(duplicate_csv_path)
 
     def do_delete():
         if _final_cond is not None:
@@ -62,7 +49,7 @@ def delete(spark, delta_table, path, group, metadata):
         else:
             return 0
 
-    for _r in _duplicate_group.toLocalIterator(prefetchPartitions=True):
+    for _r in _group_duplicate.toLocalIterator(prefetchPartitions=True):
         if _batched >= max_batch:
             _time_to_delete = _time_to_delete + do_delete()
             _batched = 0
@@ -75,7 +62,6 @@ def delete(spark, delta_table, path, group, metadata):
         _batched = _batched + 1
         _deleted_rows = _deleted_rows + 1
     _time_to_delete = _time_to_delete + do_delete()
-    _all_group.unpersist()
     return Result(_time_to_delete, _deleted_rows)
 
 
@@ -84,6 +70,25 @@ def requireSingleMetadata(file):
     if len(_m) != 1:
         raise ValueError(f"the size of {file} should be 1")
     return list(_m.values())[0]
+
+
+def save_duplicate(duplicate, groups):
+    _folders = {}
+    _i = 1
+    for _g in groups:
+        if hash(_g) % int(args.all) == int(args.index):
+            _s = time.time()
+            _folder = f"/tmp/{_metadata.group_by}={_g}"
+            duplicate.filter(f"{_metadata.group_by} = '{_g}'") \
+                .write \
+                .format("csv") \
+                .save(_folder)
+            _folders[_g] = _folder
+            print(f"({_i}/{len(groups)}) save duplicates of {_g} to {_folder} elapsed: {time.time() - _s}")
+        else:
+            print(f"({_i}/{len(groups)}) {_g} is skipped")
+        _i = _i + 1
+    return _folders
 
 
 if __name__ == '__main__':
@@ -107,18 +112,15 @@ if __name__ == '__main__':
         else:
             print(f"Start to delete duplicate by group: {_metadata.group_by} - ({args.index}/{args.all})")
             _groups = [_r[_metadata.group_by] for _r in _duplicate.select(_metadata.group_by).distinct().collect()]
-            _g_len = len(_groups)
-            _index = 0
-            for _g in _groups:
-                if hash(_g) % int(args.all) == int(args.index):
-                    _s = time.time()
-                    _r = delete(_spark, _delta_table, _path, _g, _metadata)
-                    _e = time.time() - _s
-                    print(f"({_index}/{_g_len}) de-duplicate group: {_g} elapsed: {_e} "
-                          f"time_to_delete {_r.time_to_delete} deleted_rows: {_r.deleted_rows}")
-                else:
-                    print(f"({_index}/{_g_len}) skip group: {_g}")
+            _csv_folders = save_duplicate(_duplicate, _groups)
+
+            _index = 1
+            for _group, _csv_folder in _csv_folders.items():
+                _s_dedup = time.time()
+                _r = delete(_spark, _delta_table, _group, _metadata, _csv_folder)
+                print(f"({_index}/{len(_csv_folders)}) de-duplicate group: {_group} elapsed: {time.time() - _s_dedup} "
+                      f"time_to_delete {_r.time_to_delete} deleted_rows: {_r.deleted_rows}")
                 _index = _index + 1
 
         _end_delete = time.time()
-        print(f"time to delete: {_end_delete - _start}")
+        print(f"time to cleanup duplicates: {_end_delete - _start}")

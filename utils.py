@@ -3,7 +3,7 @@ from xml.etree import ElementTree
 
 from confluent_kafka.admin import AdminClient
 from pyspark.sql.types import StringType, TimestampType, DataType, NullType, BinaryType, BooleanType, \
-    DateType, DecimalType, DoubleType, FloatType, ByteType, IntegerType, LongType, ShortType
+    DateType, DecimalType, DoubleType, FloatType, ByteType, IntegerType, LongType, ShortType, StructType
 
 
 def parse_arguments(arg_description):
@@ -162,3 +162,13 @@ def topics(bootstrap_servers):
     _admin = AdminClient({"bootstrap.servers": bootstrap_servers})
     return _admin.list_topics().topics.keys()
 
+
+def struct_type(metadata):
+    _schema = StructType()
+    for _column in metadata.columns:
+        if _column in metadata.data_types:
+            _schema.add(_column, metadata.data_types[_column], nullable=True)
+        else:
+            # if the type of column is undefined, we assign it to string type.
+            _schema.add(_column, StringType(), nullable=True)
+    return _schema

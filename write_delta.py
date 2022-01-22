@@ -1,7 +1,6 @@
 from delta import DeltaTable
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_csv, monotonically_increasing_id, col
-from pyspark.sql.types import StructType
 
 from utils import *
 
@@ -51,17 +50,6 @@ def merge(spark, metadata, delta_path, data_frame, use_merge):
             data_frame.write.format("delta").mode("append").partitionBy(metadata.group_by).save(delta_path)
         else:
             data_frame.write.format("delta").mode("append").save(delta_path)
-
-
-def struct_type(metadata):
-    _schema = StructType()
-    for _column in metadata.columns:
-        if _column in metadata.data_types:
-            _schema.add(_column, metadata.data_types[_column], nullable=True)
-        else:
-            # if the type of column is undefined, we assign it to string type.
-            _schema.add(_column, StringType(), nullable=True)
-    return _schema
 
 
 def run_topic_stream(spark, metadata, delta_path, bootstrap_servers, use_merge):
