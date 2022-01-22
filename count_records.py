@@ -20,36 +20,38 @@ def until(expected, actual):
             time.sleep(5)
 
 
-args = parse_arguments({"--topic": "the topic to trace",
-                        "--bootstrap_servers": "broker address",
-                        "--path": "the root folder of all delta tables",
-                        "--records": "the expected number of records"})
+if __name__ == '__main__':
 
-if args.path:
-    _df = SparkSession.builder \
-        .appName('read_delta') \
-        .getOrCreate() \
-        .read \
-        .format("delta") \
-        .load(args.path)
+    _args = parse_arguments({"--topic": "the topic to trace",
+                             "--bootstrap_servers": "broker address",
+                             "--path": "the root folder of all delta tables",
+                             "--records": "the expected number of records"})
 
-    if args.records:
-        until(int(args.records), lambda: _df.count())
-    else:
-        print(f"there are {_df.count()} records in {args.path}")
+    if _args.path:
+        _df = SparkSession.builder \
+            .appName('read_delta') \
+            .getOrCreate() \
+            .read \
+            .format("delta") \
+            .load(_args.path)
 
-if args.topic and args.bootstrap_servers:
-    _spark_session = SparkSession.builder.getOrCreate()
-    _spark_session.sparkContext.setLogLevel("WARN")
-    _df = _spark_session\
-        .read \
-        .format("kafka") \
-        .option("kafka.bootstrap.servers", args.bootstrap_servers) \
-        .option("subscribe", args.topic) \
-        .option("startingOffsets", "earliest") \
-        .load()
+        if _args.records:
+            until(int(_args.records), lambda: _df.count())
+        else:
+            print(f"there are {_df.count()} records in {_args.path}")
 
-    if args.records:
-        until(int(args.records), lambda: _df.count())
-    else:
-        print(f"there are {_df.count()} records in {args.topic}")
+    if _args.topic and _args.bootstrap_servers:
+        _spark = SparkSession.builder.getOrCreate()
+        _spark.sparkContext.setLogLevel("WARN")
+        _df = _spark \
+            .read \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", _args.bootstrap_servers) \
+            .option("subscribe", _args.topic) \
+            .option("startingOffsets", "earliest") \
+            .load()
+
+        if _args.records:
+            until(int(_args.records), lambda: _df.count())
+        else:
+            print(f"there are {_df.count()} records in {_args.topic}")

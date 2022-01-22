@@ -69,38 +69,39 @@ def run_csv_stream(spark, csv_source, metadata, brokers):
         .start()
 
 
-args = parse_arguments({"--bootstrap_servers": "address of kafka broker",
-                        "--schema_file": "xml file saving the table schema",
-                        "--csv_folder": "folder saving all csv data",
-                        "--recreate": "true if you want to recreate topic",
-                        "--log_level": "log level"})
+if __name__ == '__main__':
+    _args = parse_arguments({"--bootstrap_servers": "address of kafka broker",
+                             "--schema_file": "xml file saving the table schema",
+                             "--csv_folder": "folder saving all csv data",
+                             "--recreate": "true if you want to recreate topic",
+                             "--log_level": "log level"})
 
-if args.bootstrap_servers and args.schema_file and args.csv_folder:
-    _metadata = read_metadata(args.schema_file)
+    if _args.bootstrap_servers and _args.schema_file and _args.csv_folder:
+        _metadata = read_metadata(_args.schema_file)
 
-    _source_and_meta = {}
-    _nonexistent_folders = []
-    for _, _table_meta in _metadata.items():
-        _csv_source = f"{args.csv_folder}/{_table_meta.csv_folder}"
-        if os.path.isdir(_csv_source):
-            _source_and_meta[_csv_source] = _table_meta
+        _source_and_meta = {}
+        _nonexistent_folders = []
+        for _, _table_meta in _metadata.items():
+            _csv_source = f"{_args.csv_folder}/{_table_meta.csv_folder}"
+            if os.path.isdir(_csv_source):
+                _source_and_meta[_csv_source] = _table_meta
+            else:
+                _nonexistent_folders.append(_csv_source)
+
+        if len(_source_and_meta) == 0:
+            folders = ",".join(_nonexistent_folders)
+            print(f"the csv folders: {folders} are nonexistent")
         else:
-            _nonexistent_folders.append(_csv_source)
+            _spark = SparkSession.builder.getOrCreate()
 
-    if len(_source_and_meta) == 0:
-        folders = ",".join(_nonexistent_folders)
-        print(f"the csv folders: {folders} are nonexistent")
-    else:
-        _spark_session = SparkSession.builder.getOrCreate()
+            # INFO level is too verbose
+            _log_level = "WARN"
+            if _args.log_level:
+                _log_level = _args.log_level
+            _spark.sparkContext.setLogLevel(_log_level)
 
-        # INFO level is too verbose
-        _log_level = "WARN"
-        if args.log_level:
-            _log_level = args.log_level
-        _spark_session.sparkContext.setLogLevel(_log_level)
-
-        for _csv_source, _table_meta in _source_and_meta.items():
-            create_topic(args.bootstrap_servers, _table_meta, args.recreate)
-            run_csv_stream(_spark_session, _csv_source, _table_meta, args.bootstrap_servers)
-        for s in _spark_session.streams.active:
-            s.awaitTermination()
+            for _csv_source, _table_meta in _source_and_meta.items():
+                create_topic(_args.bootstrap_servers, _table_meta, _args.recreate)
+                run_csv_stream(_spark, _csv_source, _table_meta, _args.bootstrap_servers)
+            for s in _spark.streams.active:
+                s.awaitTermination()

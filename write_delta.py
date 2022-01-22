@@ -90,32 +90,34 @@ def run_topic_stream(spark, metadata, delta_path, bootstrap_servers, use_merge):
             create_stream("assign", "{\"" + metadata.topic + "\":[" + str(i) + "]}")
 
 
-args = parse_arguments({"--bootstrap_servers": "kafka brokers",
-                        "--schema_file": "xml file saving the table schema",
-                        "--output": "output path to save all delta tables",
-                        "--merge": "use MERGE to replace append",
-                        "--log_level": "log level"})
+if __name__ == '__main__':
 
-if args.bootstrap_servers and args.schema_file and args.output:
-    _spark_session = SparkSession.builder.getOrCreate()
-    _metadata = read_metadata(args.schema_file)
-    _existent_topics = topics(args.bootstrap_servers)
+    _args = parse_arguments({"--bootstrap_servers": "kafka brokers",
+                             "--schema_file": "xml file saving the table schema",
+                             "--output": "output path to save all delta tables",
+                             "--merge": "use MERGE to replace append",
+                             "--log_level": "log level"})
 
-    # check delta mode
-    _use_merge = False
-    if args.merge and args.merge.lower() == "true":
-        _use_merge = True
+    if _args.bootstrap_servers and _args.schema_file and _args.output:
+        _spark = SparkSession.builder.getOrCreate()
+        _metadata = read_metadata(_args.schema_file)
+        _existent_topics = topics(_args.bootstrap_servers)
 
-    # INFO level is too verbose
-    _log_level = "WARN"
-    if args.log_level:
-        _log_level = args.log_level
-    _spark_session.sparkContext.setLogLevel(_log_level)
+        # check delta mode
+        _use_merge = False
+        if _args.merge and _args.merge.lower() == "true":
+            _use_merge = True
 
-    for _, _table_meta in _metadata.items():
-        if _table_meta.topic in _existent_topics:
-            _delta_path = f"{args.output}/{_table_meta.delta_folder}"
-            create_delta_table(_spark_session, _delta_path, _table_meta)
-            run_topic_stream(_spark_session, _table_meta, _delta_path, args.bootstrap_servers, _use_merge)
-    for s in _spark_session.streams.active:
-        s.awaitTermination()
+        # INFO level is too verbose
+        _log_level = "WARN"
+        if _args.log_level:
+            _log_level = _args.log_level
+        _spark.sparkContext.setLogLevel(_log_level)
+
+        for _, _table_meta in _metadata.items():
+            if _table_meta.topic in _existent_topics:
+                _delta_path = f"{_args.output}/{_table_meta.delta_folder}"
+                create_delta_table(_spark, _delta_path, _table_meta)
+                run_topic_stream(_spark, _table_meta, _delta_path, _args.bootstrap_servers, _use_merge)
+        for s in _spark.streams.active:
+            s.awaitTermination()
