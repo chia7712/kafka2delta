@@ -114,16 +114,15 @@ for meta_file in "$metadata_folder"/*.xml; do
       --name $container_name \
       -p $port:4040 \
       -v "$meta_file":/tmp/schema.xml:ro \
-      -v "$main_python":/tmp/main.py:ro \
-      -v "$utils_python":/tmp/utils.py:ro \
+      -v "$main_python":/tmp/code/main.py:ro \
+      -v "$utils_python":/tmp/code/utils.py:ro \
       -v "$csv_folder":/tmp/data:ro \
       $IMAGE_NAME \
       ./bin/spark-submit \
       --name $container_name \
       --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.2 \
-      --py-files /tmp/utils.py \
       --master "local[*]" \
-      /tmp/main.py \
+      /tmp/code/main.py \
       --bootstrap_servers $brokers \
       --schema_file /tmp/schema.xml \
       --csv_folder /tmp/data >/dev/null 2>&1

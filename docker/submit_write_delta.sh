@@ -67,7 +67,7 @@ function checkOs() {
 gen2_account=""
 gen2_container=""
 gen2_key=""
-path="delta-$(($(($RANDOM % 10000)) + 10000))"
+path="/tmp/delta-$(($(($RANDOM % 10000)) + 10000))"
 mode="local[*]"
 brokers=""
 metadata_folder="$DOCKER_FOLDER/../metadata"
@@ -156,7 +156,7 @@ else
   mkdir -p $path
   output="/tmp/output"
   mount_output="-v $path:/tmp/output"
-  echo "write data to local"
+  echo "write data to local: $path"
 fi
 
 for meta_file in "$metadata_folder"/*.xml; do
@@ -177,8 +177,8 @@ for meta_file in "$metadata_folder"/*.xml; do
       $network \
       $mount_output \
       -v "$meta_file":/tmp/schema.xml:ro \
-      -v $main_python:/tmp/main.py:ro \
-      -v $utils_python:/tmp/utils.py:ro \
+      -v $main_python:/tmp/code/main.py:ro \
+      -v $utils_python:/tmp/code/utils.py:ro \
       $IMAGE_NAME \
       ./bin/spark-submit \
       --name $container_name \
@@ -194,9 +194,8 @@ for meta_file in "$metadata_folder"/*.xml; do
       --conf spark.executor.memory=10g \
       --conf spark.executor.instances=2 \
       --conf spark.databricks.delta.merge.repartitionBeforeWrite.enabled=true \
-      --py-files /tmp/utils.py \
       --master $mode \
-      /tmp/main.py \
+      /tmp/code/main.py \
       --output $output \
       --bootstrap_servers $brokers \
       --schema_file /tmp/schema.xml \
