@@ -15,7 +15,7 @@ function showHelp() {
 
 # ===================================[main]===================================
 
-brokers=3
+brokers=1
 while [[ $# -gt 0 ]]; do
   case $1 in
   --brokers)
