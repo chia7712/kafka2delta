@@ -43,9 +43,7 @@ cd kafka2delta
 ```shell
 export ROOT_FOLDER=$HOME/kafka2delta \
 && $ROOT_FOLDER/docker/submit_write_kafka.sh \
-  --brokers 192.168.50.178:12015 \
-  --csv $ROOT_FOLDER/csv \
-  --metadata $ROOT_FOLDER/metadata
+  --brokers 192.168.50.178:12015
 ```
 > - 請記得更改broker的位址
 > - metadata下的檔案決定了資料schema和分佈，請見後面說明
@@ -57,7 +55,6 @@ export ROOT_FOLDER=$HOME/kafka2delta \
 && $ROOT_FOLDER/docker/submit_write_delta.sh \
   --path /tmp/chia2 \
   --brokers 192.168.50.178:12015 \
-  --metadata $ROOT_FOLDER/metadata \
   --mode "local[*]" \
   --merge true
 ```
@@ -76,7 +73,6 @@ export ROOT_FOLDER=$HOME/kafka2delta \
   --key {you_key} \
   --path chia \
   --brokers 192.168.50.178:12015 \
-  --metadata $ROOT_FOLDER/metadata \
   --mode "local[*]" \
   --merge true
 ```

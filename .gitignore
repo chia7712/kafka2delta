@@ -141,3 +141,6 @@ zookeeper.dockerfile
 broker.dockerfile
 kafka_tool.dockerfile
 spark.dockerfile
+c2k.dockerfile
+k2d.dockerfile
+docker/context
