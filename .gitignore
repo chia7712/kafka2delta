@@ -143,4 +143,5 @@ kafka_tool.dockerfile
 spark.dockerfile
 c2k.dockerfile
 k2d.dockerfile
+base.dockerfile
 docker/context

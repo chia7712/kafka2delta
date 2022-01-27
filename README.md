@@ -55,7 +55,7 @@ export ROOT_FOLDER=$HOME/kafka2delta \
 && $ROOT_FOLDER/docker/submit_write_delta.sh \
   --path /tmp/chia2 \
   --brokers 192.168.50.178:12015 \
-  --mode "local[*]" \
+  --master "local[*]" \
   --merge true
 ```
 > - 請記得更改broker的位址 
@@ -73,7 +73,7 @@ export ROOT_FOLDER=$HOME/kafka2delta \
   --key {you_key} \
   --path chia \
   --brokers 192.168.50.178:12015 \
-  --mode "local[*]" \
+  --master "local[*]" \
   --merge true
 ```
 > - 請記得更改broker的位址

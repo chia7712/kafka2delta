@@ -1,84 +1,29 @@
 #!/bin/bash
 
+# ===============================[read utils]===============================
+source "$(dirname "$0")"/utils.sh
 # ===============================[global variables]===============================
-
-declare -r BASE_IMAGE_NAME="ghcr.io/chia7712/kafka2delta/spark:3.1.2"
-declare -r IMAGE_NAME="ghcr.io/chia7712/kafka2delta/c2k:0.0.1"
-declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-declare -r BASE_DOCKERFILE=$DOCKER_FOLDER/base.dockerfile
+declare -r IMAGE_NAME="ghcr.io/chia7712/kafka2delta/c2k:$BASE_VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/c2k.dockerfile
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
-declare -r CODE_FOLDER="$DOCKER_FOLDER/../code"
-declare -r METADATA_FOLDER="$DOCKER_FOLDER/../metadata"
-declare -r CSV_FOLDER="$DOCKER_FOLDER/../csv"
 # ===============================[variables in container]===============================
 declare -r CODE_FOLDER_IN_CONTAINER="/tmp/code"
 declare -r MAIN_PATH_IN_CONTAINER="$CODE_FOLDER_IN_CONTAINER/write_kafka.py"
 declare -r METADATA_FOLDER_IN_CONTAINER="/tmp/metadata"
 declare -r CSV_FOLDER_IN_CONTAINER="/tmp/input"
-
 # ===================================[functions]===================================
-
 function showHelp() {
   echo "Usage: [ENV] submit_write_kafka.sh"
   echo "Arguments: "
   echo "    --brokers     kafka bootstrap servers"
 }
 
-function requireFolder() {
-  local path=$1
-  if [[ ! -d "$path" ]]; then
-    echo "$1 is not folder"
-    exit 2
-  fi
-}
-
-function requireNonEmpty() {
-  local var=$1
-  local message=$2
-  if [[ "$var" == "" ]]; then
-    echo "$message"
-    exit 2
-  fi
-}
-
-function buildBaseImageIfNeed() {
-  # the spark image from astraea does not have python deps and delta deps, so we replace it by our custom image
-  if [[ "$(docker images -q $BASE_IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build --no-cache -t "$BASE_IMAGE_NAME" -f "$BASE_DOCKERFILE" "$DOCKER_FOLDER"
-  fi
-}
-
 function buildImageIfNeed() {
-  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" != "" ]]; then
-    docker rmi $IMAGE_NAME
-    if [[ "$?" != "0" ]]; then
-      exit 2
-    fi
-  fi
-  local cache="$DOCKER_FOLDER/context/c2k"
-  if [[ -d "$cache" ]]; then
-    rm -rf "$cache"
-  fi
-  mkdir -p "$cache"
-  cp -r "$CODE_FOLDER" "$cache/code"
-  cp -r "$METADATA_FOLDER" "$cache/metadata"
-  echo "# this dockerfile is generated dynamically
-FROM $BASE_IMAGE_NAME
-
-# copy py files to docker image
-COPY --chown=astraea context/c2k/code $CODE_FOLDER_IN_CONTAINER
-COPY --chown=astraea context/c2k/metadata $METADATA_FOLDER_IN_CONTAINER
-
-WORKDIR /opt/spark
-" >"$DOCKERFILE"
-
+  generateDockerfileForCode "$IMAGE_NAME" "$DOCKERFILE"
   docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
   if [[ "$?" != "0" ]]; then
     exit 2
   fi
 }
-
 # ===================================[main]===================================
 
 brokers=""
@@ -104,7 +49,7 @@ requireFolder "$CODE_FOLDER"
 requireFolder "$METADATA_FOLDER"
 requireFolder "$CSV_FOLDER"
 requireNonEmpty "$brokers" "--brokers is required"
-buildBaseImageIfNeed
+downloadBaseImage
 buildImageIfNeed
 
 for meta_file in "$METADATA_FOLDER"/*.xml; do
@@ -112,25 +57,25 @@ for meta_file in "$METADATA_FOLDER"/*.xml; do
   container_name="${meta_name%.*}-kafka"
   if [[ "$(docker ps --format={{.Names}} | grep -w $container_name)" != "" ]]; then
     echo "container: $container_name is already running"
+    continue
+  fi
+  port="$(($(($RANDOM % 10000)) + 10000))"
+  docker run -d \
+    --name "$container_name" \
+    -p $port:4040 \
+    -v "$CSV_FOLDER":"$CSV_FOLDER_IN_CONTAINER":ro \
+    $IMAGE_NAME \
+    ./bin/spark-submit \
+    --name "$container_name" \
+    --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.2 \
+    --master "local[*]" \
+    $MAIN_PATH_IN_CONTAINER \
+    --bootstrap_servers "$brokers" \
+    --schema_file "$METADATA_FOLDER_IN_CONTAINER/$meta_name" \
+    --csv_folder $CSV_FOLDER_IN_CONTAINER >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    echo "failed to submit job for schema: $meta_name"
   else
-    port="$(($(($RANDOM % 10000)) + 10000))"
-    docker run -d \
-      --name "$container_name" \
-      -p $port:4040 \
-      -v "$CSV_FOLDER":"$CSV_FOLDER_IN_CONTAINER":ro \
-      $IMAGE_NAME \
-      ./bin/spark-submit \
-      --name "$container_name" \
-      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.2 \
-      --master "local[*]" \
-      $MAIN_PATH_IN_CONTAINER \
-      --bootstrap_servers "$brokers" \
-      --schema_file "$METADATA_FOLDER_IN_CONTAINER/$meta_name" \
-      --csv_folder $CSV_FOLDER_IN_CONTAINER >/dev/null 2>&1
-    if [ $? -ne 0 ]; then
-      echo "failed to submit job for schema: $meta_name"
-    else
-      echo "check UI: http://$ADDRESS:$port for schema: $meta_name"
-    fi
+    echo "check UI: http://$ADDRESS:$port for schema: $meta_name"
   fi
 done

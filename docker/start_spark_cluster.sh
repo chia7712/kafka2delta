@@ -1,17 +1,20 @@
 #!/bin/bash
 
-# ===============================[global variables]===============================
-
-declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
-declare -r BASE_IMAGE_NAME="ghcr.io/chia7712/kafka2delta/spark:3.1.2"
-declare -r BASE_DOCKERFILE=$DOCKER_FOLDER/base.dockerfile
-
+# ===============================[read utils]===============================
+source "$(dirname "$0")"/utils.sh
 # ===================================[functions]===================================
 
 function showHelp() {
   echo "Usage: [ENV] start_spark_cluster.sh"
   echo "Arguments: "
+}
+
+function downloadBaseImage() {
+  docker pull $BASE_IMAGE_NAME
+  if [[ "$(docker images -q $BASE_IMAGE_NAME 2>/dev/null)" == "" ]]; then
+    echo "$BASE_IMAGE_NAME is not in github package. Please execute $DOCKER_FOLDER/build_base_image.sh first"
+    exit 2
+  fi
 }
 
 # ===================================[main]===================================
@@ -29,10 +32,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# build base image first
-if [[ "$(docker images -q $BASE_IMAGE_NAME 2>/dev/null)" == "" ]]; then
-  docker build --no-cache -t "$BASE_IMAGE_NAME" -f "$BASE_DOCKERFILE" "$DOCKER_FOLDER"
-fi
+downloadBaseImage
 
 if [[ -f "$DOCKER_FOLDER/start_spark.sh" ]]; then
   rm -f "$DOCKER_FOLDER/start_spark.sh"
@@ -41,8 +41,8 @@ fi
 curl -H "Cache-Control: no-cache" https://raw.githubusercontent.com/skiptests/astraea/main/docker/start_spark.sh -o "$DOCKER_FOLDER/start_spark.sh"
 
 # use custom spark image
-export REPO="ghcr.io/chia7712/kafka2delta/spark"
-export VERSION="3.1.2"
+export REPO=$BASE_REPO
+export VERSION=$BASE_VERSION
 
 # master
 export SPARK_PORT=$(($(($RANDOM % 10000)) + 10000))
