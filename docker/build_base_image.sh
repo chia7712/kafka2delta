@@ -14,20 +14,30 @@ declare -r DOCKERFILE=$BASE_DOCKERFILE
 # ===================================[functions]===================================
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
+FROM ubuntu AS build
+
+RUN apt-get update && apt-get install -y wget zip openjdk-11-jre
+
+# download ivy
+WORKDIR /tmp
+RUN wget https://dlcdn.apache.org//ant/ivy/2.5.0/apache-ivy-2.5.0-bin.zip
+RUN unzip apache-ivy-${IVY_VERSION}-bin.zip
+WORKDIR /tmp/apache-ivy-${IVY_VERSION}
+RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency io.delta delta-core_2.12 $DELTA_VERSION
+RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-sql-kafka-0-10_2.12 $SPARK_VERSION
+RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-token-provider-kafka-0-10_2.12 $SPARK_VERSION
+RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.hadoop hadoop-azure $HADOOP_VERSION
+
 FROM ghcr.io/skiptests/astraea/spark:$SPARK_VERSION
 
 # install python dependencies
 RUN pip3 install confluent-kafka==$KAFKA_PYTHON_VERSION delta-spark==$DELTA_VERSION pyspark==$SPARK_VERSION
 
-# install java dependencies
-WORKDIR /tmp
-RUN wget https://dlcdn.apache.org//ant/ivy/2.5.0/apache-ivy-2.5.0-bin.zip
-RUN unzip apache-ivy-${IVY_VERSION}-bin.zip
-WORKDIR apache-ivy-${IVY_VERSION}
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency io.delta delta-core_2.12 $DELTA_VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-sql-kafka-0-10_2.12 $SPARK_VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.spark spark-token-provider-kafka-0-10_2.12 $SPARK_VERSION
-RUN java -jar ./ivy-${IVY_VERSION}.jar -dependency org.apache.hadoop hadoop-azure $HADOOP_VERSION
+# copy jars from ivy
+COPY --from=build /root/.ivy2 /home/astraea/.ivy2
+USER root
+RUN chown -R astraea:astraea /home/astraea/.ivy2
+USER astraea
 
 # collect all jars
 RUN mkdir -p /home/astraea/.ivy2/jars/
