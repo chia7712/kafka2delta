@@ -39,6 +39,9 @@ if [[ -f "$DOCKER_FOLDER/start_zookeeper.sh" ]]; then
   rm -f "$DOCKER_FOLDER/start_zookeeper.sh"
 fi
 
+# utils script
+curl -H "Cache-Control: no-cache" https://raw.githubusercontent.com/skiptests/astraea/main/docker/docker_build_common.sh -o "$DOCKER_FOLDER/docker_build_common.sh"
+
 curl -H "Cache-Control: no-cache" https://raw.githubusercontent.com/skiptests/astraea/main/docker/start_zookeeper.sh -o "$DOCKER_FOLDER/start_zookeeper.sh"
 
 export ZOOKEEPER_PORT=$(($(($RANDOM % 10000)) + 10000))

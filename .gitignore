@@ -135,6 +135,7 @@ dmypy.json
 start_zookeeper.sh
 start_broker.sh
 start_spark.sh
+docker_build_common.sh
 
 # generated dockerfiles
 zookeeper.dockerfile
