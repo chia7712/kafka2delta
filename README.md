@@ -105,6 +105,7 @@ columns       | 欄位名稱。注意：該些名稱會自動轉成大寫
 pks           | primary key名稱。注意：該些名稱會自動轉成大寫
 types         | 欄位型別。如果省略的話所有欄位都會設定成字串
 partitionBy   | 用來分組的欄位。此值會影響資料在kafka內的分佈以及delta內的分佈
+orderBy       | 用來去重的欄位。當輸入CSV檔案時，重複的資料會依照此欄位排序後將舊的資料刪掉
 partitions    | kafka partitions的數量
 
 # 平行度

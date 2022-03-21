@@ -5,7 +5,6 @@ import time
 from confluent_kafka.cimpl import NewTopic
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, array, array_join, lit, hash, abs
-from pyspark.sql.types import StructType
 
 from utils import *
 
@@ -39,33 +38,39 @@ def all_string_types(columns):
     return _schema
 
 
-def run_csv_stream(spark, csv_source, metadata, brokers):
-    # we don't care for recovery currently, so using a random folder is fine
-    _checkpoint_folder = tempfile.mkdtemp()
-    _cols = [col(_c) for _c in metadata.columns]
-    _pks = [col(_c) for _c in metadata.pks]
+def write_to_kafka(df, metadata, brokers):
+    cols = [col(_c) for _c in metadata.columns]
+    pks = [col(_c) for _c in metadata.pks]
+    kafka_df = df
+    if metadata.order_by is not None:
+        kafka_df = kafka_df.orderBy(metadata.order_by, ascending=False).dropDuplicates(metadata.pks)
 
-    _df = spark.readStream \
-        .schema(all_string_types(metadata.columns)) \
-        .option("recursiveFileLookup", "true") \
-        .csv(csv_source) \
-        .withColumn("key", array(_pks)) \
+    kafka_df = kafka_df.withColumn("key", array(pks)) \
         .withColumn("key", array_join(col("key"), ",")) \
-        .withColumn("value", array(_cols)) \
+        .withColumn("value", array(cols)) \
         .withColumn("value", array_join(col("value"), ",", null_replacement=""))
 
     if metadata.partition_by is not None:
-        _df = _df.withColumn("partition", abs(hash(col(metadata.partition_by))) % lit(metadata.partitions)) \
+        kafka_df = kafka_df.withColumn("partition", abs(hash(col(metadata.partition_by))) % lit(metadata.partitions)) \
             .selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "partition")
     else:
-        _df = _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)")
+        kafka_df = kafka_df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)")
 
-    _df.writeStream \
+    kafka_df.write \
         .format("kafka") \
-        .option("checkpointLocation", _checkpoint_folder) \
         .option("kafka.bootstrap.servers", brokers) \
         .option("kafka.compression.type", "zstd") \
         .option("topic", metadata.topic) \
+        .save()
+
+
+def run_csv_stream(spark, csv_source, metadata, brokers):
+    spark.readStream \
+        .schema(all_string_types(metadata.columns)) \
+        .option("recursiveFileLookup", "true") \
+        .csv(csv_source) \
+        .writeStream \
+        .foreachBatch(lambda df, _: write_to_kafka(df, metadata, brokers)) \
         .start()
 
 

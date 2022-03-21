@@ -15,7 +15,7 @@ def parse_arguments(arg_description):
 
 class TableMetadata:
     def __init__(self, table_name, csv_folder, topic, delta_folder, columns, pks, partition_by,
-                 partitions, data_types, compact):
+                 partitions, data_types, compact, order_by):
         self._table_name = table_name
         self._csv_folder = csv_folder
         self._topic = topic
@@ -26,6 +26,7 @@ class TableMetadata:
         self._partitions = partitions
         self._data_types = data_types
         self._compact = compact
+        self._order_by = order_by
 
     @property
     def compact(self): return self._compact
@@ -56,6 +57,9 @@ class TableMetadata:
 
     @property
     def delta_folder(self): return self._delta_folder
+
+    @property
+    def order_by(self): return self._order_by
 
     def __str__(self):
         return f"name: {self._table_name} " \
@@ -118,8 +122,6 @@ def read_metadata(path):
         _partition_by = None
         if _child.find("partitionBy") is not None and _child.find("partitionBy").text is not None:
             _partition_by = _child.find("partitionBy").text.strip().upper()
-        if _partition_by is not None and _partition_by not in _pks:
-            raise ValueError(f"[{_name}]'s partition: {_partition_by} is not existent in {_pks}")
 
         # for kafka partition
         _partitions = 10
@@ -144,6 +146,11 @@ def read_metadata(path):
         if _child.find("compact") is not None and _child.find("compact").text is not None:
             _compact = _child.find("compact").text.lower() == "true"
 
+        # for remove duplicate from csv files
+        _order_by = None
+        if _child.find("orderBy") is not None and _child.find("orderBy").text is not None:
+            _order_by = _child.find("orderBy").text.strip().upper()
+
         # build metadata
         _schemas[_name] = TableMetadata(_name,
                                         _child.find("csvFolder").text,
@@ -154,7 +161,8 @@ def read_metadata(path):
                                         _partition_by,
                                         _partitions,
                                         _data_types,
-                                        _compact)
+                                        _compact,
+                                        _order_by)
     return _schemas
 
 

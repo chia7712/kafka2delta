@@ -37,9 +37,7 @@ def merge(spark, metadata, delta_path, data_frame, use_merge):
             .alias("previous") \
             .merge(data_frame
                    .drop("partition")
-                   .withColumn("increasing_id", monotonically_increasing_id())
-                   .orderBy("increasing_id", ascending=False)
-                   .drop("increasing_id")
+                   .orderBy(metadata.order_by, ascending=False)
                    .dropDuplicates(metadata.pks)
                    .alias("updates"), _cond) \
             .whenMatchedUpdateAll() \
