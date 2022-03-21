@@ -110,10 +110,10 @@ def read_metadata(path):
             raise ValueError(f"duplicate name: {_name}")
 
         # for columns
-        _columns = [_c.strip().upper() for _c in _child.find("columns").text.split(",")]
+        _columns = [_c.strip().lower() for _c in _child.find("columns").text.split(",")]
 
         # for primary keys
-        _pks = [_c.strip().upper() for _c in _child.find("pks").text.split(",")]
+        _pks = [_c.strip().lower() for _c in _child.find("pks").text.split(",")]
         for _pk in _pks:
             if _pk not in _columns:
                 raise ValueError(f"[{_name}]'pk: {_pk} is not existent in {_columns}")
@@ -121,7 +121,7 @@ def read_metadata(path):
         # for delta table partition
         _partition_by = None
         if _child.find("partitionBy") is not None and _child.find("partitionBy").text is not None:
-            _partition_by = _child.find("partitionBy").text.strip().upper()
+            _partition_by = _child.find("partitionBy").text.strip().lower()
 
         # for kafka partition
         _partitions = 10
@@ -149,7 +149,7 @@ def read_metadata(path):
         # for remove duplicate from csv files
         _order_by = None
         if _child.find("orderBy") is not None and _child.find("orderBy").text is not None:
-            _order_by = _child.find("orderBy").text.strip().upper()
+            _order_by = _child.find("orderBy").text.strip().lower()
 
         # build metadata
         _schemas[_name] = TableMetadata(_name,
