@@ -14,7 +14,7 @@ def parse_arguments(arg_description):
 
 
 class TableMetadata:
-    def __init__(self, table_name, csv_folder, topic, delta_folder, columns, pks, group_by,
+    def __init__(self, table_name, csv_folder, topic, delta_folder, columns, pks, partition_by,
                  partitions, data_types, compact):
         self._table_name = table_name
         self._csv_folder = csv_folder
@@ -22,7 +22,7 @@ class TableMetadata:
         self._delta_folder = delta_folder
         self._columns = columns
         self._pks = pks
-        self._group_by = group_by
+        self._partition_by = partition_by
         self._partitions = partitions
         self._data_types = data_types
         self._compact = compact
@@ -37,7 +37,7 @@ class TableMetadata:
     def partitions(self): return self._partitions
 
     @property
-    def group_by(self): return self._group_by
+    def partition_by(self): return self._partition_by
 
     @property
     def pks(self): return self._pks
@@ -115,11 +115,11 @@ def read_metadata(path):
                 raise ValueError(f"[{_name}]'pk: {_pk} is not existent in {_columns}")
 
         # for delta table partition
-        _group_by = None
-        if _child.find("groupBy") is not None and _child.find("groupBy").text is not None:
-            _group_by = _child.find("groupBy").text.strip().upper()
-        if _group_by is not None and _group_by not in _pks:
-            raise ValueError(f"[{_name}]'s partition: {_group_by} is not existent in {_pks}")
+        _partition_by = None
+        if _child.find("partitionBy") is not None and _child.find("partitionBy").text is not None:
+            _partition_by = _child.find("partitionBy").text.strip().upper()
+        if _partition_by is not None and _partition_by not in _pks:
+            raise ValueError(f"[{_name}]'s partition: {_partition_by} is not existent in {_pks}")
 
         # for kafka partition
         _partitions = 10
@@ -151,7 +151,7 @@ def read_metadata(path):
                                         _child.find("deltaFolder").text,
                                         _columns,
                                         _pks,
-                                        _group_by,
+                                        _partition_by,
                                         _partitions,
                                         _data_types,
                                         _compact)

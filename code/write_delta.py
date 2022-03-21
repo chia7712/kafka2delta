@@ -19,19 +19,19 @@ def create_delta_table(spark, delta_path, metadata):
             _table.addColumn(_column, StringType(), nullable=True)
     # add append timestamp
     _table.addColumn("APPEND_TIME", TimestampType(), nullable=True)
-    if metadata.group_by is not None:
+    if metadata.partition_by is not None:
         # Delta gives this ugly API in 1.0.0 ...
-        _table.partitionedBy(metadata.group_by, metadata.group_by)
+        _table.partitionedBy(metadata.partition_by, metadata.partition_by)
     _table.execute()
 
 
 def merge(spark, metadata, delta_path, data_frame, use_merge):
     if use_merge:
         _cond = condition_of_merge("previous", "updates", metadata.pks)
-        if metadata.group_by is not None:
-            _values = ",".join([f"'{row[metadata.group_by]}'" for row in data_frame
-                               .select(metadata.group_by).distinct().collect()])
-            _cond = f"previous.{metadata.group_by} IN ({_values}) AND {_cond}"
+        if metadata.partition_by is not None:
+            _values = ",".join([f"'{row[metadata.partition_by]}'" for row in data_frame
+                               .select(metadata.partition_by).distinct().collect()])
+            _cond = f"previous.{metadata.partition_by} IN ({_values}) AND {_cond}"
 
         DeltaTable.forPath(spark, delta_path) \
             .alias("previous") \
@@ -46,8 +46,8 @@ def merge(spark, metadata, delta_path, data_frame, use_merge):
             .whenNotMatchedInsertAll() \
             .execute()
     else:
-        if metadata.group_by is not None:
-            data_frame.write.format("delta").mode("append").partitionBy(metadata.group_by).save(delta_path)
+        if metadata.partition_by is not None:
+            data_frame.write.format("delta").mode("append").partitionBy(metadata.partition_by).save(delta_path)
         else:
             data_frame.write.format("delta").mode("append").save(delta_path)
 
@@ -70,7 +70,7 @@ def run_topic_stream(spark, metadata, delta_path, bootstrap_servers, use_merge):
             .foreachBatch(lambda df, _: merge(spark, metadata, delta_path, df, use_merge)) \
             .start()
 
-    if metadata.group_by is None:
+    if metadata.partition_by is None:
         create_stream("subscribe", metadata.topic)
 
     else:

@@ -44,7 +44,7 @@ def delete(spark, delta_table, group, metadata, duplicate_csv_path):
     def do_delete():
         if _final_cond is not None:
             _s_delete = time.time()
-            delta_table.delete(f"{metadata.group_by} in ('{group}') AND ({_final_cond})")
+            delta_table.delete(f"{metadata.partition_by} in ('{group}') AND ({_final_cond})")
             return time.time() - _s_delete
         else:
             return 0
@@ -78,8 +78,8 @@ def save_duplicate(duplicate, groups):
     for _g in groups:
         if hash(_g) % int(args.all) == int(args.index):
             _s = time.time()
-            _folder = f"/tmp/{_metadata.group_by}={_g}"
-            duplicate.filter(f"{_metadata.group_by} = '{_g}'") \
+            _folder = f"/tmp/{_metadata.partition_by}={_g}"
+            duplicate.filter(f"{_metadata.partition_by} = '{_g}'") \
                 .write \
                 .format("csv") \
                 .save(_folder)
@@ -105,13 +105,13 @@ if __name__ == '__main__':
         _all = _spark.read.format("delta").load(_path)
         _delta_table = DeltaTable.forPath(_spark, _path)
         _duplicate = _all.exceptAll(_all.orderBy(order_by, ascending=False).drop_duplicates(_metadata.pks)).cache()
-        if _metadata.group_by is None or not args.all or not args.index:
+        if _metadata.partition_by is None or not args.all or not args.index:
             print("Start to delete duplicate")
             for _row in _duplicate.toLocalIterator():
                 _delta_table.delete(cond(_row))
         else:
-            print(f"Start to delete duplicate by group: {_metadata.group_by} - ({args.index}/{args.all})")
-            _groups = [_r[_metadata.group_by] for _r in _duplicate.select(_metadata.group_by).distinct().collect()]
+            print(f"Start to delete duplicate by group: {_metadata.partition_by} - ({args.index}/{args.all})")
+            _groups = [_r[_metadata.partition_by] for _r in _duplicate.select(_metadata.partition_by).distinct().collect()]
             _csv_folders = save_duplicate(_duplicate, _groups)
 
             _index = 1

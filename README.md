@@ -90,7 +90,7 @@ export ROOT_FOLDER=$HOME/kafka2delta \
         <columns>c0,c1,c2,c3,c4,c5,c6,c7,c8,c9</columns>
         <pks>c0,c1</pks>
         <types>int,str,str,str,str,str,str,str,str,str</types>
-        <groupBy>c1</groupBy>
+        <partitionBy>c1</partitionBy>
         <partitions>10</partitions>
     </table>
 </tableInfos>
@@ -104,7 +104,7 @@ deltaFolder   | 用在`kafka to delta`，代表kafka topic的資料要輸出的�
 columns       | 欄位名稱。注意：該些名稱會自動轉成大寫
 pks           | primary key名稱。注意：該些名稱會自動轉成大寫
 types         | 欄位型別。如果省略的話所有欄位都會設定成字串
-groupBy       | 用來分組的欄位。此值會影響資料在kafka內的分佈以及delta內的分佈
+partitionBy   | 用來分組的欄位。此值會影響資料在kafka內的分佈以及delta內的分佈
 partitions    | kafka partitions的數量
 
 # 平行度

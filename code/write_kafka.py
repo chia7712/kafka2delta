@@ -54,8 +54,8 @@ def run_csv_stream(spark, csv_source, metadata, brokers):
         .withColumn("value", array(_cols)) \
         .withColumn("value", array_join(col("value"), ",", null_replacement=""))
 
-    if metadata.group_by is not None:
-        _df = _df.withColumn("partition", abs(hash(col(metadata.group_by))) % lit(metadata.partitions)) \
+    if metadata.partition_by is not None:
+        _df = _df.withColumn("partition", abs(hash(col(metadata.partition_by))) % lit(metadata.partitions)) \
             .selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "partition")
     else:
         _df = _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)")
