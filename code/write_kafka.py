@@ -41,22 +41,15 @@ def all_string_types(columns):
 def write_to_kafka(df, metadata, brokers):
     cols = [col(_c) for _c in metadata.columns]
     pks = [col(_c) for _c in metadata.pks]
-    kafka_df = df
-    if metadata.order_by is not None:
-        kafka_df = kafka_df.orderBy(metadata.order_by, ascending=False).dropDuplicates(metadata.pks)
-
-    kafka_df = kafka_df.withColumn("key", array(pks)) \
+    df.orderBy(metadata.order_by, ascending=False) \
+        .dropDuplicates(metadata.pks) \
+        .withColumn("key", array(pks)) \
         .withColumn("key", array_join(col("key"), ",")) \
         .withColumn("value", array(cols)) \
-        .withColumn("value", array_join(col("value"), ",", null_replacement=""))
-
-    if metadata.partition_by is not None:
-        kafka_df = kafka_df.withColumn("partition", abs(hash(col(metadata.partition_by))) % lit(metadata.partitions)) \
-            .selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "partition")
-    else:
-        kafka_df = kafka_df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)")
-
-    kafka_df.write \
+        .withColumn("value", array_join(col("value"), ",", null_replacement="")) \
+        .withColumn("partition", abs(hash(col(metadata.partition_by))) % lit(metadata.partitions)) \
+        .selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "partition") \
+        .write \
         .format("kafka") \
         .option("kafka.bootstrap.servers", brokers) \
         .option("kafka.compression.type", "zstd") \

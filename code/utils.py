@@ -114,14 +114,16 @@ def read_metadata(path):
 
         # for primary keys
         _pks = [_c.strip().lower() for _c in _child.find("pks").text.split(",")]
+        if len(_pks) == 0:
+            raise ValueError("pks can't be empty")
         for _pk in _pks:
             if _pk not in _columns:
                 raise ValueError(f"[{_name}]'pk: {_pk} is not existent in {_columns}")
 
         # for delta table partition
-        _partition_by = None
-        if _child.find("partitionBy") is not None and _child.find("partitionBy").text is not None:
-            _partition_by = _child.find("partitionBy").text.strip().lower()
+        if _child.find("partitionBy") is None or _child.find("partitionBy").text is None:
+            raise ValueError(f"partitionBy is required")
+        _partition_by = _child.find("partitionBy").text.strip().lower()
 
         # for kafka partition
         _partitions = 10
@@ -129,15 +131,14 @@ def read_metadata(path):
             _partitions = int(_child.find("partitions").text.strip())
 
         # for data type
+        if _child.find("types") is None or _child.find("types").text is None:
+            raise ValueError(f"types is required")
+
         _data_types = {}
-        if _child.find("types") is not None and _child.find("types").text is not None:
-            for _i, _c in enumerate(_child.find("types").text.split(",")):
-                if _i >= len(_columns):
-                    raise ValueError(f"length of types {_i} is not equal to columns ({len(_columns)})")
-                _data_types[_columns[_i]] = data_type(_c)
-        else:
-            for _i, _c in enumerate(_columns):
-                _data_types[_columns[_i]] = StringType()
+        for _i, _c in enumerate(_child.find("types").text.split(",")):
+            if _i >= len(_columns):
+                raise ValueError(f"length of types {_i} is not equal to columns ({len(_columns)})")
+            _data_types[_columns[_i]] = data_type(_c)
 
         if len(_data_types) != 0 and len(_data_types) != len(_columns):
             raise ValueError(f"length of types {len(_data_types)} is not equal to columns ({len(_columns)})")
@@ -147,9 +148,9 @@ def read_metadata(path):
             _compact = _child.find("compact").text.lower() == "true"
 
         # for remove duplicate from csv files
-        _order_by = None
-        if _child.find("orderBy") is not None and _child.find("orderBy").text is not None:
-            _order_by = _child.find("orderBy").text.strip().lower()
+        if _child.find("orderBy") is None or _child.find("orderBy").text is None:
+            raise ValueError(f"orderBy is required")
+        _order_by = _child.find("orderBy").text.strip().lower()
 
         # build metadata
         _schemas[_name] = TableMetadata(_name,
