@@ -1,10 +1,9 @@
 import os
-import tempfile
 import time
 
 from confluent_kafka.cimpl import NewTopic
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, array, array_join, lit, hash, abs
+from pyspark.sql.functions import col, array, array_join, lit, hash, abs, to_date
 
 from utils import *
 
@@ -47,7 +46,7 @@ def write_to_kafka(df, metadata, brokers):
         .withColumn("key", array_join(col("key"), ",")) \
         .withColumn("value", array(cols)) \
         .withColumn("value", array_join(col("value"), ",", null_replacement="")) \
-        .withColumn("partition", abs(hash(col(metadata.partition_by))) % lit(metadata.partitions)) \
+        .withColumn("partition", abs(hash(to_date(col(metadata.partition_by)))) % lit(metadata.partitions)) \
         .selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "partition") \
         .write \
         .format("kafka") \

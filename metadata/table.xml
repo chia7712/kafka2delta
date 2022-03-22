@@ -5,8 +5,8 @@
         <topic>table</topic>
         <deltaFolder>table</deltaFolder>
         <columns>c0,c1,c2,c3,c4,c5,c6,c7,c8,c9</columns>
-        <pks>c1</pks>
-        <types>int,str,str,str,str,str,str,str,str,str</types>
+        <pks>c0</pks>
+        <types>int,timestamp,str,str,str,str,str,str,str,str</types>
         <partitionBy>c1</partitionBy>
         <orderBy>c0</orderBy>
         <partitions>10</partitions>

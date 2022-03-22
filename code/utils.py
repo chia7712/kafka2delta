@@ -120,11 +120,6 @@ def read_metadata(path):
             if _pk not in _columns:
                 raise ValueError(f"[{_name}]'pk: {_pk} is not existent in {_columns}")
 
-        # for delta table partition
-        if _child.find("partitionBy") is None or _child.find("partitionBy").text is None:
-            raise ValueError(f"partitionBy is required")
-        _partition_by = _child.find("partitionBy").text.strip().lower()
-
         # for kafka partition
         _partitions = 10
         if _child.find("partitions") is not None and _child.find("partitions").text is not None:
@@ -143,6 +138,18 @@ def read_metadata(path):
         if len(_data_types) != 0 and len(_data_types) != len(_columns):
             raise ValueError(f"length of types {len(_data_types)} is not equal to columns ({len(_columns)})")
 
+        # for delta table partition
+        if _child.find("partitionBy") is None or _child.find("partitionBy").text is None:
+            raise ValueError(f"partitionBy is required")
+        _partition_by = _child.find("partitionBy").text.strip().lower()
+
+        if _partition_by not in _columns:
+            raise ValueError(f"partitionBy column: {_partition_by} is not in columns: {_columns}")
+
+        if not isinstance(_data_types[_partition_by], TimestampType):
+            raise ValueError(f"the type of {_partition_by} (partition column) should be Timestamp")
+
+        # kafka compaction
         _compact = True
         if _child.find("compact") is not None and _child.find("compact").text is not None:
             _compact = _child.find("compact").text.lower() == "true"
