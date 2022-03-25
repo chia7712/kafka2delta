@@ -17,8 +17,6 @@ def create_delta_table(spark, delta_path, metadata):
         else:
             # if the type of column is undefined, we assign it to string type.
             _table.addColumn(_column, StringType(), nullable=True)
-    # add append timestamp
-    _table.addColumn("APPEND_TIME", TimestampType(), nullable=True)
     if metadata.partition_by is not None:
         # Delta gives this ugly API in 1.0.0 ...
         _table.partitionedBy(metadata.partition_by, metadata.partition_by)
@@ -60,9 +58,8 @@ def run_topic_stream(spark, metadata, delta_path, bootstrap_servers, use_merge):
             .option(subscribe_key, subscribe_value) \
             .load() \
             .selectExpr("CAST(value AS STRING)", "timestamp") \
-            .withColumn("APPEND_TIME", col("timestamp")) \
             .withColumn("value", from_csv("value", struct_type(metadata).simpleString())) \
-            .select("value.*", "APPEND_TIME") \
+            .select("value.*") \
             .writeStream \
             .trigger(processingTime='1 seconds') \
             .foreachBatch(lambda df, _: merge(spark, metadata, delta_path, df, use_merge)) \
