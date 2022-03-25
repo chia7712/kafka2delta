@@ -40,14 +40,15 @@ def all_string_types(columns):
 def write_to_kafka(df, metadata, brokers):
     cols = [col(_c) for _c in metadata.columns] + [col(metadata.partition_column_name)]
     pks = [col(_c) for _c in metadata.pks]
+    # noted that we don't define kafka partition now. We use the date data to assign delta partition, so all data in
+    # same date will be hosted by same broker if we assign kafka partition.
     df.orderBy(metadata.order_by, ascending=False) \
         .dropDuplicates(metadata.pks) \
         .withColumn("key", array(pks)) \
         .withColumn("key", array_join(col("key"), ",")) \
         .withColumn("value", array(cols)) \
         .withColumn("value", array_join(col("value"), ",", null_replacement="")) \
-        .withColumn("partition", abs(hash(col(metadata.partition_column_name))) % lit(metadata.partitions)) \
-        .selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "partition") \
+        .selectExpr("CAST(key as STRING)", "CAST(value AS STRING)") \
         .write \
         .format("kafka") \
         .option("kafka.bootstrap.servers", brokers) \

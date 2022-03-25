@@ -52,24 +52,21 @@ def struct_type(metadata):
 
 
 def run_topic_stream(spark, metadata, delta_path, bootstrap_servers):
-    def create_stream(subscribe_key, subscribe_value):
-        spark.readStream \
-            .format("kafka") \
-            .option("kafka.bootstrap.servers", bootstrap_servers) \
-            .option("startingOffsets", "earliest") \
-            .option("maxOffsetsPerTrigger", "5000000") \
-            .option(subscribe_key, subscribe_value) \
-            .load() \
-            .selectExpr("CAST(value AS STRING)", "timestamp") \
-            .withColumn("value", from_csv("value", struct_type(metadata).simpleString())) \
-            .select("value.*") \
-            .writeStream \
-            .trigger(processingTime='1 seconds') \
-            .foreachBatch(lambda df, _: merge(spark, metadata, delta_path, df)) \
-            .start()
-
-    for i in range(0, metadata.partitions):
-        create_stream("assign", "{\"" + metadata.topic + "\":[" + str(i) + "]}")
+    # we don't assign kafka partition, so using subscription is good now.
+    spark.readStream \
+        .format("kafka") \
+        .option("kafka.bootstrap.servers", bootstrap_servers) \
+        .option("startingOffsets", "earliest") \
+        .option("maxOffsetsPerTrigger", "5000000") \
+        .option("subscribe", metadata.topic) \
+        .load() \
+        .selectExpr("CAST(value AS STRING)", "timestamp") \
+        .withColumn("value", from_csv("value", struct_type(metadata).simpleString())) \
+        .select("value.*") \
+        .writeStream \
+        .trigger(processingTime='1 seconds') \
+        .foreachBatch(lambda df, _: merge(spark, metadata, delta_path, df)) \
+        .start()
 
 
 if __name__ == '__main__':
