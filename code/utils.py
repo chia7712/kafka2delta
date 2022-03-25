@@ -157,7 +157,7 @@ def read_metadata(path):
         # for remove duplicate from csv files
         if _child.find("orderBy") is None or _child.find("orderBy").text is None:
             raise ValueError(f"orderBy is required")
-        _order_by = _child.find("orderBy").text.strip().lower()
+        _order_by = [_c.strip().lower() for _c in _child.find("orderBy").text.split(",")]
 
         # build metadata
         _schemas[_name] = TableMetadata(_name,

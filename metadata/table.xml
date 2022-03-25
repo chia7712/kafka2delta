@@ -4,11 +4,11 @@
         <csvFolder>table</csvFolder>
         <topic>table</topic>
         <deltaFolder>table</deltaFolder>
-        <columns>c0,c1,c2,c3,c4,c5,c6,c7,c8,c9</columns>
-        <pks>c0</pks>
-        <types>int,timestamp,str,str,str,str,str,str,str,str</types>
-        <partitionBy>c1</partitionBy>
-        <orderBy>c0</orderBy>
+        <columns>c1,c2,c3,c4,c5,c6,c7,c8,c9,c10</columns>
+        <pks>c1</pks>
+        <types>int,timestamp,timestamp,timestamp,str,str,str,str,str,str</types>
+        <partitionBy>c2</partitionBy>
+        <orderBy>c3,c4</orderBy>
         <partitions>10</partitions>
         <compact>true</compact>
     </table>
