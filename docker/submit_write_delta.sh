@@ -143,7 +143,7 @@ for meta_file in "$METADATA_FOLDER"/*.xml; do
     echo "container: $container_name is already running"
     continue
   fi
-
+  ui_port=$(($(($RANDOM%10000))+10000))
   docker run -d \
     --name $container_name \
     --network host \
@@ -155,6 +155,7 @@ for meta_file in "$METADATA_FOLDER"/*.xml; do
     $DELTA_CONFIGS \
     $RESOURCES_CONFIGS \
     $k8s_configs \
+    --conf "spark.ui.port=$ui_port" \
     --deploy-mode client \
     --master $master \
     "$main_path" \
@@ -164,6 +165,6 @@ for meta_file in "$METADATA_FOLDER"/*.xml; do
   if [ $? -ne 0 ]; then
     echo "failed to submit job for schema: $meta_name"
   else
-    echo "check UI: http://$ADDRESS:4040 for schema: $meta_name, data location: $path"
+    echo "check UI: http://$ADDRESS:$ui_port for schema: $meta_name, data location: $path"
   fi
 done
