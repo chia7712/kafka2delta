@@ -25,7 +25,8 @@ if __name__ == '__main__':
     _args = parse_arguments({"--topic": "the topic to trace",
                              "--bootstrap_servers": "broker address",
                              "--path": "the root folder of all delta tables",
-                             "--records": "the expected number of records"})
+                             "--records": "the expected number of records",
+                             "--display": "display all data in topic"})
 
     if _args.path:
         _df = SparkSession.builder \
@@ -50,6 +51,9 @@ if __name__ == '__main__':
             .option("subscribe", _args.topic) \
             .option("startingOffsets", "earliest") \
             .load()
+
+        if _args.display:
+            _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)").show(truncate=False)
 
         if _args.records:
             until(int(_args.records), lambda: _df.count())
