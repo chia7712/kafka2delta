@@ -78,33 +78,33 @@ class TableMetadata:
 
 
 def data_type(name):
-    if name.strip().upper() == "DATA":
+    if name.strip().upper() == "DATA" or name.strip().upper() == "DATATYPE":
         return DataType()
-    elif name.strip().upper() == "NULL":
+    elif name.strip().upper() == "NULL" or name.strip().upper() == "NULLTYPE":
         return NullType()
-    elif name.strip().upper() == "STRING" or name.strip().upper() == "STR":
+    elif name.strip().upper() == "STRING" or name.strip().upper() == "STR" or name.strip().upper() == "STRINGTYPE":
         return StringType()
-    elif name.strip().upper() == "BINARY":
+    elif name.strip().upper() == "BINARY" or name.strip().upper() == "BINARYTYPE":
         return BinaryType()
-    elif name.strip().upper() == "BOOLEAN":
+    elif name.strip().upper() == "BOOLEAN" or name.strip().upper() == "BOOLEANTYPE":
         return BooleanType()
-    elif name.strip().upper() == "DATE":
+    elif name.strip().upper() == "DATE" or name.strip().upper() == "DATETYPE":
         return DateType()
-    elif name.strip().upper() == "TIMESTAMP" or name.strip().upper() == "TIME":
+    elif name.strip().upper() == "TIMESTAMP" or name.strip().upper() == "TIME" or name.strip().upper() == "TIMESTAMPTYPE":
         return TimestampType()
-    elif name.strip().upper() == "DECIMAL":
+    elif name.strip().upper() == "DECIMAL" or name.strip().upper() == "DECIMALTYPE":
         return DecimalType()
-    elif name.strip().upper() == "DOUBLE":
+    elif name.strip().upper() == "DOUBLE" or name.strip().upper() == "DOUBLETYPE":
         return DoubleType()
-    elif name.strip().upper() == "FLOAT":
+    elif name.strip().upper() == "FLOAT" or name.strip().upper() == "FLOATTYPE":
         return FloatType()
-    elif name.strip().upper() == "BYTE":
+    elif name.strip().upper() == "BYTE" or name.strip().upper() == "BYTETYPE":
         return ByteType()
-    elif name.strip().upper() == "INTEGER" or name.strip().upper() == "INT":
+    elif name.strip().upper() == "INTEGER" or name.strip().upper() == "INT" or name.strip().upper() == "INTEGERTYPE":
         return IntegerType()
-    elif name.strip().upper() == "LONG":
+    elif name.strip().upper() == "LONG" or name.strip().upper() == "LONGTYPE":
         return LongType()
-    elif name.strip().upper() == "SHORT":
+    elif name.strip().upper() == "SHORT" or name.strip().upper() == "SHORTTYPE":
         return ShortType()
     else:
         raise ValueError(f"unsupported type: {name}")
