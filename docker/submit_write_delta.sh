@@ -53,7 +53,6 @@ gen2_key=""
 path=""
 master="local[*]"
 brokers=""
-use_merge="false"
 k8s_namespace="default"
 k8s_account="default"
 while [[ $# -gt 0 ]]; do
@@ -85,11 +84,6 @@ while [[ $# -gt 0 ]]; do
     ;;
   --master)
     master="$2"
-    shift
-    shift
-    ;;
-  --merge)
-    use_merge="$2"
     shift
     shift
     ;;
@@ -166,8 +160,7 @@ for meta_file in "$METADATA_FOLDER"/*.xml; do
     "$main_path" \
     --output $output \
     --bootstrap_servers $brokers \
-    --schema_file $METADATA_FOLDER_IN_CONTAINER/$meta_name \
-    --merge $use_merge >/dev/null 2>&1
+    --schema_file $METADATA_FOLDER_IN_CONTAINER/$meta_name >/dev/null 2>&1
   if [ $? -ne 0 ]; then
     echo "failed to submit job for schema: $meta_name"
   else

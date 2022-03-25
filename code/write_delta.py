@@ -23,32 +23,26 @@ def create_delta_table(spark, delta_path, metadata):
     _table.execute()
 
 
-def merge(spark, metadata, delta_path, data_frame, use_merge):
-    if use_merge:
-        _cond = condition_of_merge("previous", "updates", metadata.pks)
-        if metadata.partition_by is not None:
-            _values = ",".join([f"'{row[metadata.partition_by]}'" for row in data_frame
-                               .select(metadata.partition_by).distinct().collect()])
-            _cond = f"previous.{metadata.partition_by} IN ({_values}) AND {_cond}"
+def merge(spark, metadata, delta_path, data_frame):
+    _cond = condition_of_merge("previous", "updates", metadata.pks)
+    if metadata.partition_by is not None:
+        _values = ",".join([f"'{row[metadata.partition_by]}'" for row in data_frame
+                           .select(metadata.partition_by).distinct().collect()])
+        _cond = f"previous.{metadata.partition_by} IN ({_values}) AND {_cond}"
 
-        DeltaTable.forPath(spark, delta_path) \
-            .alias("previous") \
-            .merge(data_frame
-                   .drop("partition")
-                   .orderBy(metadata.order_by, ascending=False)
-                   .dropDuplicates(metadata.pks)
-                   .alias("updates"), _cond) \
-            .whenMatchedUpdateAll() \
-            .whenNotMatchedInsertAll() \
-            .execute()
-    else:
-        if metadata.partition_by is not None:
-            data_frame.write.format("delta").mode("append").partitionBy(metadata.partition_by).save(delta_path)
-        else:
-            data_frame.write.format("delta").mode("append").save(delta_path)
+    DeltaTable.forPath(spark, delta_path) \
+        .alias("previous") \
+        .merge(data_frame
+               .drop("partition")
+               .orderBy(metadata.order_by, ascending=False)
+               .dropDuplicates(metadata.pks)
+               .alias("updates"), _cond) \
+        .whenMatchedUpdateAll() \
+        .whenNotMatchedInsertAll() \
+        .execute()
 
 
-def run_topic_stream(spark, metadata, delta_path, bootstrap_servers, use_merge):
+def run_topic_stream(spark, metadata, delta_path, bootstrap_servers):
     def create_stream(subscribe_key, subscribe_value):
         spark.readStream \
             .format("kafka") \
@@ -62,7 +56,7 @@ def run_topic_stream(spark, metadata, delta_path, bootstrap_servers, use_merge):
             .select("value.*") \
             .writeStream \
             .trigger(processingTime='1 seconds') \
-            .foreachBatch(lambda df, _: merge(spark, metadata, delta_path, df, use_merge)) \
+            .foreachBatch(lambda df, _: merge(spark, metadata, delta_path, df)) \
             .start()
 
     if metadata.partition_by is None:
@@ -78,18 +72,12 @@ if __name__ == '__main__':
     _args = parse_arguments({"--bootstrap_servers": "kafka brokers",
                              "--schema_file": "xml file saving the table schema",
                              "--output": "output path to save all delta tables",
-                             "--merge": "use MERGE to replace append",
                              "--log_level": "log level"})
 
     if _args.bootstrap_servers and _args.schema_file and _args.output:
         _spark = SparkSession.builder.getOrCreate()
         _metadata = read_metadata(_args.schema_file)
         _existent_topics = topics(_args.bootstrap_servers)
-
-        # check delta mode
-        _use_merge = False
-        if _args.merge and _args.merge.lower() == "true":
-            _use_merge = True
 
         # INFO level is too verbose
         _log_level = "WARN"
@@ -101,6 +89,6 @@ if __name__ == '__main__':
             if _table_meta.topic in _existent_topics:
                 _delta_path = f"{_args.output}/{_table_meta.delta_folder}"
                 create_delta_table(_spark, _delta_path, _table_meta)
-                run_topic_stream(_spark, _table_meta, _delta_path, _args.bootstrap_servers, _use_merge)
+                run_topic_stream(_spark, _table_meta, _delta_path, _args.bootstrap_servers)
         for s in _spark.streams.active:
             s.awaitTermination()
