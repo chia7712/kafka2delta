@@ -73,12 +73,6 @@ function generateDockerfileForCode() {
   local image_name=$1
   local dockerfile=$2
   local master=$3
-  if [[ "$(docker images -q $image_name 2>/dev/null)" != "" ]]; then
-    docker rmi $image_name
-    if [[ "$?" != "0" ]]; then
-      exit 2
-    fi
-  fi
   local cache="$DOCKER_FOLDER/context"
   if [[ -d "$cache" ]]; then
     rm -rf "$cache"
