@@ -5,10 +5,6 @@ from pyspark.sql.functions import from_csv, monotonically_increasing_id, col
 from utils import *
 
 
-def condition_of_merge(source, target, pks):
-    return " AND ".join(["%s.%s = %s.%s" % (source, _column, target, _column) for _column in pks])
-
-
 def create_delta_table(spark, delta_path, metadata):
     _table = DeltaTable.createIfNotExists(spark).location(delta_path)
     for _column in metadata.columns:
@@ -17,18 +13,16 @@ def create_delta_table(spark, delta_path, metadata):
         else:
             # if the type of column is undefined, we assign it to string type.
             _table.addColumn(_column, StringType(), nullable=True)
-    if metadata.partition_by is not None:
-        # Delta gives this ugly API in 1.0.0 ...
-        _table.partitionedBy(metadata.partition_by, metadata.partition_by)
-    _table.execute()
+    # Delta gives this ugly API in 1.0.0 ...
+    _table.partitionedBy(metadata.partition_by, metadata.partition_by).execute()
 
 
 def merge(spark, metadata, delta_path, data_frame):
-    _cond = condition_of_merge("previous", "updates", metadata.pks)
-    if metadata.partition_by is not None:
-        _values = ",".join([f"'{row[metadata.partition_by]}'" for row in data_frame
-                           .select(metadata.partition_by).distinct().collect()])
-        _cond = f"previous.{metadata.partition_by} IN ({_values}) AND {_cond}"
+    _partition_values = ",".join([f"'{row[metadata.partition_by]}'" for row in data_frame.select(metadata.partition_by)
+                                 .distinct().collect()])
+    _partition_cond = f"previous.{metadata.partition_by} IN ({_partition_values})"
+    _merge_cond = " AND ".join(["%s.%s = %s.%s" % ("previous", _column, "updates", _column) for _column in metadata.pks])
+    _cond = f"{_partition_cond} AND {_merge_cond}"
 
     DeltaTable.forPath(spark, delta_path) \
         .alias("previous") \
@@ -59,12 +53,8 @@ def run_topic_stream(spark, metadata, delta_path, bootstrap_servers):
             .foreachBatch(lambda df, _: merge(spark, metadata, delta_path, df)) \
             .start()
 
-    if metadata.partition_by is None:
-        create_stream("subscribe", metadata.topic)
-
-    else:
-        for i in range(0, metadata.partitions):
-            create_stream("assign", "{\"" + metadata.topic + "\":[" + str(i) + "]}")
+    for i in range(0, metadata.partitions):
+        create_stream("assign", "{\"" + metadata.topic + "\":[" + str(i) + "]}")
 
 
 if __name__ == '__main__':
