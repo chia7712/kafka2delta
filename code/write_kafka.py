@@ -38,7 +38,7 @@ def all_string_types(columns):
 
 
 def write_to_kafka(df, metadata, brokers):
-    cols = [col(_c) for _c in metadata.columns]
+    cols = [col(_c) for _c in metadata.columns] + [col(metadata.partition_column_name)]
     pks = [col(_c) for _c in metadata.pks]
     df.orderBy(metadata.order_by, ascending=False) \
         .dropDuplicates(metadata.pks) \
@@ -46,7 +46,7 @@ def write_to_kafka(df, metadata, brokers):
         .withColumn("key", array_join(col("key"), ",")) \
         .withColumn("value", array(cols)) \
         .withColumn("value", array_join(col("value"), ",", null_replacement="")) \
-        .withColumn("partition", abs(hash(to_date(col(metadata.partition_by)))) % lit(metadata.partitions)) \
+        .withColumn("partition", abs(hash(col(metadata.partition_column_name))) % lit(metadata.partitions)) \
         .selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "partition") \
         .write \
         .format("kafka") \
@@ -57,10 +57,14 @@ def write_to_kafka(df, metadata, brokers):
 
 
 def run_csv_stream(spark, csv_source, metadata, brokers):
+    # we addd partition data and column according to partition_by now. It will add some cost (larger kafka record),
+    # but it can save the time of calculating partition data when merging delta data. Also, the schema in kafka
+    # can be consistent with delta table.
     spark.readStream \
         .schema(all_string_types(metadata.columns)) \
         .option("recursiveFileLookup", "true") \
         .csv(csv_source) \
+        .withColumn(metadata.partition_column_name, to_date(col(metadata.partition_by))) \
         .writeStream \
         .foreachBatch(lambda df, _: write_to_kafka(df, metadata, brokers)) \
         .start()

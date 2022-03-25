@@ -37,6 +37,15 @@ class TableMetadata:
     @property
     def partitions(self): return self._partitions
 
+    # the column stored partition data
+    @property
+    def partition_column_name(self): return "pt_date"
+
+    # the type of partition column
+    @property
+    def partition_column_type(self): return DateType()
+
+    # this column offers the data for partition column
     @property
     def partition_by(self): return self._partition_by
 
@@ -177,14 +186,3 @@ def read_metadata(path):
 def topics(bootstrap_servers):
     _admin = AdminClient({"bootstrap.servers": bootstrap_servers})
     return _admin.list_topics().topics.keys()
-
-
-def struct_type(metadata):
-    _schema = StructType()
-    for _column in metadata.columns:
-        if _column in metadata.data_types:
-            _schema.add(_column, metadata.data_types[_column], nullable=True)
-        else:
-            # if the type of column is undefined, we assign it to string type.
-            _schema.add(_column, StringType(), nullable=True)
-    return _schema

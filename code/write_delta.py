@@ -1,6 +1,6 @@
 from delta import DeltaTable
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_csv, monotonically_increasing_id, col
+from pyspark.sql.functions import from_csv, monotonically_increasing_id, col, to_date
 
 from utils import *
 
@@ -13,15 +13,21 @@ def create_delta_table(spark, delta_path, metadata):
         else:
             # if the type of column is undefined, we assign it to string type.
             _table.addColumn(_column, StringType(), nullable=True)
+    # add the partition column (it is different from partition_by)
+    _table.addColumn(metadata.partition_column_name, metadata.partition_column_type, nullable=True)
     # Delta gives this ugly API in 1.0.0 ...
-    _table.partitionedBy(metadata.partition_by, metadata.partition_by).execute()
+    _table.partitionedBy(metadata.partition_column_name, metadata.partition_column_name).execute()
 
 
 def merge(spark, metadata, delta_path, data_frame):
-    _partition_values = ",".join([f"'{row[metadata.partition_by]}'" for row in data_frame.select(metadata.partition_by)
-                                 .distinct().collect()])
-    _partition_cond = f"previous.{metadata.partition_by} IN ({_partition_values})"
-    _merge_cond = " AND ".join(["%s.%s = %s.%s" % ("previous", _column, "updates", _column) for _column in metadata.pks])
+    # the following generated query won't work with empty data frame, so we skip empty data frame
+    if len(data_frame.head(1)) == 0:
+        return
+    _partition_values = ",".join([f"'{row[metadata.partition_column_name]}'" for row in
+                                  data_frame.select(metadata.partition_column_name).distinct().collect()])
+    _partition_cond = f"previous.{metadata.partition_column_name} IN ({_partition_values})"
+    _merge_cond = " AND ".join(
+        ["%s.%s = %s.%s" % ("previous", _column, "updates", _column) for _column in metadata.pks])
     _cond = f"{_partition_cond} AND {_merge_cond}"
 
     DeltaTable.forPath(spark, delta_path) \
@@ -34,6 +40,15 @@ def merge(spark, metadata, delta_path, data_frame):
         .whenMatchedUpdateAll() \
         .whenNotMatchedInsertAll() \
         .execute()
+
+
+def struct_type(metadata):
+    _schema = StructType()
+    for _column in metadata.columns:
+        _schema.add(_column, metadata.data_types[_column], nullable=True)
+    # the partition column is already in kafka record (csv), so we have to add it now to parse csv correctly
+    _schema.add(metadata.partition_column_name, metadata.partition_column_type, nullable=True)
+    return _schema
 
 
 def run_topic_stream(spark, metadata, delta_path, bootstrap_servers):
