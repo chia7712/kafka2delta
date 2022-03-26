@@ -3,19 +3,14 @@ speed up merge of delta table by kafka
 
 # 背景
 
-Delta是個強大的工具，但聰明的人類總能找到讓Delta尷尬的情境，例如：
-
-1. 常常需要更新資料，因此要執行大量且昂貴的`MERGE INTO`
-2. primary key沒有時間欄位，而且會更新一年前的資料，因此不能使用時間欄位來做delta partition 
-3. 來源csv資料是雜亂沒有分類，因此無法有效使用delta partition pruning
+Delta是個強大的工具，但聰明的人類總能找到讓Delta尷尬的情境，例如常常需要更新資料，因此要執行大量且昂貴的`MERGE INTO`
 
 # 解法
 
 我們利用kafka來優化merge的資料流：
 
-1. 選定一個primary key來將資料分組到不同的kafka partition
+1. 選定一個timestamp欄位來將資料分組到不同的kafka partition
 2. 使用kafka compact topic來盡可能de-duplicate
-3. 每個spark streaming處理一個topic-partition，藉此讓`MERGE INTO`只需要針對特定資料範圍
 
 測試三千萬資料時，此解法將資料處理所需的時間從20分鐘降低到9分鐘左右
 
@@ -83,11 +78,13 @@ export ROOT_FOLDER=$HOME/kafka2delta \
         <csvFolder>table</csvFolder>
         <topic>table</topic>
         <deltaFolder>table</deltaFolder>
-        <columns>c0,c1,c2,c3,c4,c5,c6,c7,c8,c9</columns>
-        <pks>c0,c1</pks>
-        <types>int,str,str,str,str,str,str,str,str,str</types>
-        <partitionBy>c1</partitionBy>
+        <columns>c1,c2,c3,c4,c5,c6,c7,c8,c9,c10</columns>
+        <pks>c1</pks>
+        <types>int,timestamp,timestamp,timestamp,str,str,str,str,str,str</types>
+        <partitionBy>c2</partitionBy>
+        <orderBy>c3,c4</orderBy>
         <partitions>10</partitions>
+        <compact>true</compact>
     </table>
 </tableInfos>
 ```
@@ -97,12 +94,13 @@ export ROOT_FOLDER=$HOME/kafka2delta \
 csvFolder     | 用在`csv to kafka`，代表csv檔案所在的（相對）目錄。注意：根目錄是由`csv to kafka`提交任務時所指定(`--csv $ROOT_FOLDER/csv`)
 topic         | 用在`csv to kafka`，代表csv檔案的資料要放到哪一個kafka topic
 deltaFolder   | 用在`kafka to delta`，代表kafka topic的資料要輸出的目錄。注意：根目錄是由`kafka to delta`提交任務時所指定(`--path chia`)
-columns       | 欄位名稱。注意：該些名稱會自動轉成大寫
-pks           | primary key名稱。注意：該些名稱會自動轉成大寫
+columns       | 欄位名稱。注意：該些名稱會自動轉成小寫
+pks           | primary key名稱。注意：該些名稱會自動轉成小寫
 types         | 欄位型別。如果省略的話所有欄位都會設定成字串
-partitionBy   | 用來分組的欄位。此值會影響資料在kafka內的分佈以及delta內的分佈
+partitionBy   | 用來分組的欄位。此值會影響資料在delta內的分佈
 orderBy       | 用來去重的欄位。當輸入CSV檔案時，重複的資料會依照此欄位排序後將舊的資料刪掉
 partitions    | kafka partitions的數量
+compact       | 是否要啟用kafka compact功能
 
 # 平行度
 
