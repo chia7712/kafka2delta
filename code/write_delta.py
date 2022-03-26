@@ -1,7 +1,9 @@
+import time
+
+from confluent_kafka import Producer
 from delta import DeltaTable
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_csv, monotonically_increasing_id, col, to_date
-
+from pyspark.sql.functions import from_csv, min
 from utils import *
 
 
@@ -14,7 +16,24 @@ def create_delta_table(spark, delta_path, metadata):
         .execute()
 
 
-def merge(spark, metadata, delta_path, data_frame):
+def log(data_frame, bootstrap_servers, table_name):
+    p = Producer({'bootstrap.servers': bootstrap_servers})
+    _batch_size = data_frame.count()
+    _delta_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    _kafka_time = data_frame.select(min("timestamp")).first()["min(timestamp)"]
+    data = f"""
+            {{
+                "table_name": "{table_name}",
+                "batch_size": {_batch_size},
+                "kafka_time": "{_kafka_time}",
+                "delta_time": "{_delta_time}"
+            }}
+        """
+    p.produce('log', value=data.encode('utf-8'))
+    p.flush()
+
+
+def merge(spark, metadata, delta_path, data_frame, bootstrap_servers):
     # the following generated query won't work with empty data frame, so we skip empty data frame
     if len(data_frame.head(1)) == 0:
         return
@@ -28,7 +47,7 @@ def merge(spark, metadata, delta_path, data_frame):
     DeltaTable.forPath(spark, delta_path) \
         .alias("previous") \
         .merge(data_frame
-               .drop("partition")
+               .drop("timestamp")
                .orderBy(metadata.order_by, ascending=False)
                .dropDuplicates(metadata.pks)
                .alias("updates"), _cond) \
@@ -36,10 +55,13 @@ def merge(spark, metadata, delta_path, data_frame):
         .whenNotMatchedInsertAll() \
         .execute()
 
+    # log the result for this batch
+    log(data_frame, bootstrap_servers, metadata.table_name)
+
 
 def struct_type(metadata):
     # the partition column is already in kafka record (csv), so we have to add it now to parse csv correctly
-    return StructType(metadata.struct_fields)\
+    return StructType(metadata.struct_fields) \
         .add(metadata.partition_column_name, metadata.partition_column_type, nullable=True)
 
 
@@ -54,10 +76,10 @@ def run_topic_stream(spark, metadata, delta_path, bootstrap_servers):
         .load() \
         .selectExpr("CAST(value AS STRING)", "timestamp") \
         .withColumn("value", from_csv("value", struct_type(metadata).simpleString())) \
-        .select("value.*") \
+        .select("value.*", "timestamp") \
         .writeStream \
         .trigger(processingTime='1 seconds') \
-        .foreachBatch(lambda df, _: merge(spark, metadata, delta_path, df)) \
+        .foreachBatch(lambda df, _: merge(spark, metadata, delta_path, df, bootstrap_servers)) \
         .start()
 
 
