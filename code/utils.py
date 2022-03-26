@@ -3,7 +3,7 @@ from xml.etree import ElementTree
 
 from confluent_kafka.admin import AdminClient
 from pyspark.sql.types import StringType, TimestampType, DataType, NullType, BinaryType, BooleanType, \
-    DateType, DecimalType, DoubleType, FloatType, ByteType, IntegerType, LongType, ShortType, StructType
+    DateType, DecimalType, DoubleType, FloatType, ByteType, IntegerType, LongType, ShortType, StructType, StructField
 
 
 def parse_arguments(arg_description):
@@ -30,6 +30,10 @@ class TableMetadata:
 
     @property
     def compact(self): return self._compact
+
+    @property
+    def struct_fields(self):
+        return [StructField(_column, self._data_types[_column], nullable=True) for _column in self._columns]
 
     @property
     def data_types(self): return self._data_types

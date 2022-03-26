@@ -6,17 +6,12 @@ from utils import *
 
 
 def create_delta_table(spark, delta_path, metadata):
-    _table = DeltaTable.createIfNotExists(spark).location(delta_path)
-    for _column in metadata.columns:
-        if _column in metadata.data_types:
-            _table.addColumn(_column, metadata.data_types[_column], nullable=True)
-        else:
-            # if the type of column is undefined, we assign it to string type.
-            _table.addColumn(_column, StringType(), nullable=True)
     # add the partition column (it is different from partition_by)
-    _table.addColumn(metadata.partition_column_name, metadata.partition_column_type, nullable=True)
-    # Delta gives this ugly API in 1.0.0 ...
-    _table.partitionedBy(metadata.partition_column_name, metadata.partition_column_name).execute()
+    DeltaTable.createIfNotExists(spark).location(delta_path) \
+        .addColumns(metadata.struct_fields) \
+        .addColumn(metadata.partition_column_name, metadata.partition_column_type, nullable=True) \
+        .partitionedBy(metadata.partition_column_name, metadata.partition_column_name) \
+        .execute()
 
 
 def merge(spark, metadata, delta_path, data_frame):
@@ -43,12 +38,9 @@ def merge(spark, metadata, delta_path, data_frame):
 
 
 def struct_type(metadata):
-    _schema = StructType()
-    for _column in metadata.columns:
-        _schema.add(_column, metadata.data_types[_column], nullable=True)
     # the partition column is already in kafka record (csv), so we have to add it now to parse csv correctly
-    _schema.add(metadata.partition_column_name, metadata.partition_column_type, nullable=True)
-    return _schema
+    return StructType(metadata.struct_fields)\
+        .add(metadata.partition_column_name, metadata.partition_column_type, nullable=True)
 
 
 def run_topic_stream(spark, metadata, delta_path, bootstrap_servers):

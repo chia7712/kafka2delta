@@ -31,10 +31,7 @@ def create_topic(bootstrap_servers, metadata, recreate):
 
 
 def all_string_types(columns):
-    _schema = StructType()
-    for _column in columns:
-        _schema.add(_column, StringType(), nullable=True)
-    return _schema
+    return StructType([StructField(_column, StringType(), nullable=True) for _column in columns])
 
 
 def write_to_kafka(df, metadata, brokers):
