@@ -16,7 +16,7 @@ def create_delta_table(spark, delta_path, metadata):
         .execute()
 
 
-def log(data_frame, bootstrap_servers, table_name):
+def log(data_frame, bootstrap_servers, table_name, partition_values):
     p = Producer({'bootstrap.servers': bootstrap_servers})
     _batch_size = data_frame.count()
     _delta_time = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -25,6 +25,7 @@ def log(data_frame, bootstrap_servers, table_name):
             {{
                 "table_name": "{table_name}",
                 "batch_size": {_batch_size},
+                "partition_values": "{partition_values}",
                 "kafka_time": "{_kafka_time}",
                 "delta_time": "{_delta_time}"
             }}
@@ -56,7 +57,7 @@ def merge(spark, metadata, delta_path, data_frame, bootstrap_servers):
         .execute()
 
     # log the result for this batch
-    log(data_frame, bootstrap_servers, metadata.table_name)
+    log(data_frame, bootstrap_servers, metadata.table_name, _partition_values)
 
 
 def struct_type(metadata):
