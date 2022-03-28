@@ -53,7 +53,7 @@ if __name__ == '__main__':
             .load()
 
         if _args.display:
-            _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)").show(truncate=False)
+            _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "timestamp").show(truncate=False)
 
         if _args.records:
             until(int(_args.records), lambda: _df.count())
