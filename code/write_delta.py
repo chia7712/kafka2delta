@@ -20,7 +20,9 @@ def log(data_frame, bootstrap_servers, metadata, partition_values):
     p = Producer({'bootstrap.servers': bootstrap_servers})
     _batch_size = data_frame.count()
     _delta_time = time.strftime("%Y-%m-%d %H:%M:%S")
-    _kafka_time = data_frame.select(min("timestamp")).first()["min(timestamp)"]
+    # the head row is the "first" record from kafka topic, but it may NOT the earliest record. However, it is too
+    # expensive to seek the min timestamp of whole batch, so we take first record instead.
+    _kafka_time = data_frame.head()["timestamp"]
     data = f"""
             {{
                 "topic": "{metadata.topic}",
