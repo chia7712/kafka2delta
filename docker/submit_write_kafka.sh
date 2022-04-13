@@ -60,10 +60,11 @@ for meta_file in "$METADATA_FOLDER"/*.xml; do
     continue
   fi
   port="$(($(($RANDOM % 10000)) + 10000))"
+  # noted that the permission of csv folder is RW since we will move completed csv files to archive folder
   docker run -d \
     --name "$container_name" \
     -p $port:4040 \
-    -v "$CSV_FOLDER":"$CSV_FOLDER_IN_CONTAINER":ro \
+    -v "$CSV_FOLDER":"$CSV_FOLDER_IN_CONTAINER" \
     $IMAGE_NAME \
     ./bin/spark-submit \
     --name "$container_name" \

@@ -74,6 +74,10 @@ class TableMetadata:
     @property
     def order_by(self): return self._order_by
 
+    # keep the completed csv files
+    @property
+    def archive_folder(self): return "_archive"
+
     def __str__(self):
         return f"name: {self._table_name} " \
                f"topic: {self._topic} " \

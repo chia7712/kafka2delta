@@ -54,13 +54,16 @@ def write_to_kafka(df, metadata, brokers):
         .save()
 
 
-def run_csv_stream(spark, csv_source, metadata, brokers):
+def run_csv_stream(spark, csv_source, archive_path, metadata, brokers):
     # we addd partition data and column according to partition_by now. It will add some cost (larger kafka record),
     # but it can save the time of calculating partition data when merging delta data. Also, the schema in kafka
     # can be consistent with delta table.
     spark.readStream \
         .schema(all_string_types(metadata.columns)) \
         .option("recursiveFileLookup", "true") \
+        .option("cleanSource", "archive") \
+        .option("sourceArchiveDir", archive_path) \
+        .option("spark.sql.streaming.fileSource.cleaner.numThreads", "3") \
         .csv(csv_source) \
         .withColumn(metadata.partition_column_name, to_date(col(metadata.partition_by))) \
         .writeStream \
@@ -82,6 +85,9 @@ if __name__ == '__main__':
         _nonexistent_folders = []
         for _, _table_meta in _metadata.items():
             _csv_source = f"{_args.csv_folder}/{_table_meta.csv_folder}"
+            _archive = f"{_args.csv_folder}/{_table_meta.archive_folder}"
+            if not os.path.isdir(_archive):
+                os.mkdir(_archive)
             if os.path.isdir(_csv_source):
                 _source_and_meta[_csv_source] = _table_meta
             else:
@@ -100,7 +106,8 @@ if __name__ == '__main__':
             _spark.sparkContext.setLogLevel(_log_level)
 
             for _csv_source, _table_meta in _source_and_meta.items():
+                _archive = f"{_args.csv_folder}/{_table_meta.archive_folder}"
                 create_topic(_args.bootstrap_servers, _table_meta, _args.recreate)
-                run_csv_stream(_spark, _csv_source, _table_meta, _args.bootstrap_servers)
+                run_csv_stream(_spark, _csv_source, _archive, _table_meta, _args.bootstrap_servers)
             for s in _spark.streams.active:
                 s.awaitTermination()
