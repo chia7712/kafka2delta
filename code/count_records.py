@@ -26,6 +26,7 @@ if __name__ == '__main__':
                              "--bootstrap_servers": "broker address",
                              "--path": "the root folder of all delta tables",
                              "--records": "the expected number of records",
+                             "--show_records": "the number of records to show",
                              "--display": "display all data in topic"})
 
     if _args.path:
@@ -41,6 +42,10 @@ if __name__ == '__main__':
         else:
             print(f"there are {_df.count()} records in {_args.path}")
 
+    show_records = 100
+    if _args.show_records:
+        show_records = int(_args.show_records)
+
     if _args.topic and _args.bootstrap_servers:
         _spark = SparkSession.builder.getOrCreate()
         _spark.sparkContext.setLogLevel("WARN")
@@ -53,7 +58,9 @@ if __name__ == '__main__':
             .load()
 
         if _args.display:
-            _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "timestamp").show(truncate=False)
+            _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "timestamp")\
+                .orderBy("timestamp", ascending=False)\
+                .show(show_records, truncate=False)
 
         if _args.records:
             until(int(_args.records), lambda: _df.count())
