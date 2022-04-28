@@ -15,7 +15,7 @@ def parse_arguments(arg_description):
 
 class TableMetadata:
     def __init__(self, table_name, csv_folder, topic, delta_folder, columns, pks, partition_by,
-                 partitions, data_types, compact, order_by):
+                 partitions, data_types, compact, order_by, processing_time, max_offsets_per_trigger):
         self._table_name = table_name
         self._csv_folder = csv_folder
         self._topic = topic
@@ -27,6 +27,8 @@ class TableMetadata:
         self._data_types = data_types
         self._compact = compact
         self._order_by = order_by
+        self._processing_time = processing_time
+        self._max_offsets_per_trigger = max_offsets_per_trigger
 
     @property
     def compact(self): return self._compact
@@ -77,6 +79,12 @@ class TableMetadata:
     # keep the completed csv files
     @property
     def archive_folder(self): return "_archive"
+
+    @property
+    def processing_time(self): return self._processing_time
+
+    @property
+    def max_offsets_per_trigger(self): return self.max_offsets_per_trigger
 
     def __str__(self):
         return f"name: {self._table_name} " \
@@ -176,6 +184,14 @@ def read_metadata(path):
             raise ValueError(f"orderBy is required")
         _order_by = [_c.strip().lower() for _c in _child.find("orderBy").text.split(",")]
 
+        _processing_time = 5
+        if _child.find("processingTime") is not None and _child.find("processingTime").text is not None:
+            _processing_time = int(_child.find("processingTime").text.strip())
+
+        _max_offsets_per_trigger = 5000000
+        if _child.find("maxOffsetsPerTrigger") is not None and _child.find("maxOffsetsPerTrigger").text is not None:
+            _max_offsets_per_trigger = int(_child.find("maxOffsetsPerTrigger").text.strip())
+
         # build metadata
         _schemas[_name] = TableMetadata(_name,
                                         _child.find("csvFolder").text,
@@ -187,7 +203,9 @@ def read_metadata(path):
                                         _partitions,
                                         _data_types,
                                         _compact,
-                                        _order_by)
+                                        _order_by,
+                                        _processing_time,
+                                        _max_offsets_per_trigger)
     return _schemas
 
 
