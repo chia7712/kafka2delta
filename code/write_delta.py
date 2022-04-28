@@ -17,7 +17,7 @@ def create_delta_table(spark, delta_path, metadata):
         .execute()
 
 
-def log(data_frame, bootstrap_servers, metadata, partition_values, fetch_time, calculate_partition_time):
+def log(data_frame, bootstrap_servers, metadata, partition_values, fetch_time, partition_time):
     p = Producer({'bootstrap.servers': bootstrap_servers})
     _batch_size = data_frame.count()
     _delta_time = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -33,7 +33,7 @@ def log(data_frame, bootstrap_servers, metadata, partition_values, fetch_time, c
                 "partition_values": "{partition_values}",
                 "kafka_time": "{_kafka_time}",
                 "fetch_time": "{fetch_time}",
-                "calculate_partition_time": "{calculate_partition_time}",
+                "partition_time": "{partition_time}",
                 "delta_time": "{_delta_time}"
             }}
         """
@@ -48,7 +48,7 @@ def merge(spark, metadata, delta_path, data_frame, bootstrap_servers):
     _fetch_time = time.strftime("%Y-%m-%d %H:%M:%S")
     _partition_values = ",".join([f"'{row[metadata.partition_column_name]}'" for row in
                                   data_frame.select(metadata.partition_column_name).distinct().collect()])
-    _calculate_partition_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    _partition_time = time.strftime("%Y-%m-%d %H:%M:%S")
     _partition_cond = f"previous.{metadata.partition_column_name} IN ({_partition_values})"
     _merge_cond = " AND ".join(
         ["%s.%s = %s.%s" % ("previous", _column, "updates", _column) for _column in metadata.pks])
@@ -66,7 +66,7 @@ def merge(spark, metadata, delta_path, data_frame, bootstrap_servers):
         .execute()
 
     # log the result for this batch
-    log(data_frame, bootstrap_servers, metadata, _partition_values, _fetch_time, _calculate_partition_time)
+    log(data_frame, bootstrap_servers, metadata, _partition_values, _fetch_time, _partition_time)
 
 
 def struct_type(metadata):
