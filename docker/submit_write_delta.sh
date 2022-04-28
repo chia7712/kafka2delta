@@ -15,6 +15,8 @@ declare -r RESOURCES_CONFIGS="--conf spark.driver.cores=1 \
                       --conf spark.executor.cores=2 \
                       --conf spark.executor.memory=4g \
                       --conf spark.executor.instances=2"
+# add more memory to driver to run both driver/executor in local mode
+declare -r RESOURCES_CONFIGS_FOR_LOCAL="--conf spark.driver.memory=6g"
 # ===================================[functions]===================================
 function showHelp() {
   echo "Usage: [ENV] submit_write_delta.sh"
@@ -135,7 +137,7 @@ fi
 # reference to local file so we don't need to share those files between all pods
 main_path=$([[ "$master" == "k8s"* ]] && echo "local://$MAIN_PATH_IN_CONTAINER" || echo "$MAIN_PATH_IN_CONTAINER")
 k8s_configs=$(generateK8sConfigs "$k8s_namespace" "$k8s_account" "$IMAGE_NAME")
-
+resource=$([[ "$master" == *"local"* ]] && echo "$RESOURCES_CONFIGS_FOR_LOCAL" || echo "$RESOURCES_CONFIGS")
 for meta_file in "$METADATA_FOLDER"/*.xml; do
   meta_name=$(basename -- "$meta_file")
   container_name="${meta_name%.*}-delta"
@@ -153,7 +155,7 @@ for meta_file in "$METADATA_FOLDER"/*.xml; do
     --name $container_name \
     $gen2_configs \
     $DELTA_CONFIGS \
-    $RESOURCES_CONFIGS \
+    $resource \
     $k8s_configs \
     --conf "spark.ui.port=$ui_port" \
     --deploy-mode client \

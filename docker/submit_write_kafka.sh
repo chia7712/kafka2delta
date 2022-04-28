@@ -10,6 +10,8 @@ declare -r CODE_FOLDER_IN_CONTAINER="/tmp/code"
 declare -r MAIN_PATH_IN_CONTAINER="$CODE_FOLDER_IN_CONTAINER/write_kafka.py"
 declare -r METADATA_FOLDER_IN_CONTAINER="/tmp/metadata"
 declare -r CSV_FOLDER_IN_CONTAINER="/tmp/input"
+# ===============================[driver/executor resource]===============================
+declare -r RESOURCES_CONFIGS="--conf spark.driver.memory=4g"
 # ===================================[functions]===================================
 function showHelp() {
   echo "Usage: [ENV] submit_write_kafka.sh"
@@ -67,6 +69,7 @@ for meta_file in "$METADATA_FOLDER"/*.xml; do
     -v "$CSV_FOLDER":"$CSV_FOLDER_IN_CONTAINER" \
     $IMAGE_NAME \
     ./bin/spark-submit \
+    $RESOURCES_CONFIGS \
     --name "$container_name" \
     --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.2 \
     --master "local[*]" \
