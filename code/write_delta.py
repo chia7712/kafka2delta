@@ -80,7 +80,7 @@ def run_topic_stream(spark, metadata, delta_path, bootstrap_servers):
     spark.readStream \
         .format("kafka") \
         .option("kafka.bootstrap.servers", bootstrap_servers) \
-        .option("startingOffsets", "earliest") \
+        .option("startingOffsets", "latest") \
         .option("maxOffsetsPerTrigger", f"{metadata.max_offsets_per_trigger}") \
         .option("subscribe", metadata.topic) \
         .load() \
