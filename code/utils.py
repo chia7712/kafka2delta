@@ -84,7 +84,7 @@ class TableMetadata:
     def processing_time(self): return self._processing_time
 
     @property
-    def max_offsets_per_trigger(self): return self.max_offsets_per_trigger
+    def max_offsets_per_trigger(self): return self._max_offsets_per_trigger
 
     def __str__(self):
         return f"name: {self._table_name} " \
