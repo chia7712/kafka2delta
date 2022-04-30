@@ -17,24 +17,19 @@ def create_delta_table(spark, delta_path, metadata):
         .execute()
 
 
-def log(data_frame, bootstrap_servers, metadata, partition_values, fetch_time, partition_time):
+def log(bootstrap_servers, metadata, partition_values, kafka_time, fetch_time, partition_time, delta_time, batch_size):
     p = Producer({'bootstrap.servers': bootstrap_servers})
-    _batch_size = data_frame.count()
-    _delta_time = time.strftime("%Y-%m-%d %H:%M:%S")
-    # the head row is the "first" record from kafka topic, but it may NOT the earliest record. However, it is too
-    # expensive to seek the min timestamp of whole batch, so we take first record instead.
-    _kafka_time = data_frame.head()["timestamp"]
     data = f"""
             {{
                 "topic": "{metadata.topic}",
                 "delta_folder": "{metadata.delta_folder}",
                 "csv_folder": "{metadata.csv_folder}",
-                "batch_size": {_batch_size},
+                "batch_size": {batch_size},
                 "partition_values": "{partition_values}",
-                "kafka_time": "{_kafka_time}",
+                "kafka_time": "{kafka_time}",
                 "fetch_time": "{fetch_time}",
                 "partition_time": "{partition_time}",
-                "delta_time": "{_delta_time}"
+                "delta_time": "{delta_time}"
             }}
         """
     p.produce('log', value=data.encode('utf-8'))
@@ -48,12 +43,15 @@ def merge(spark, metadata, delta_path, data_frame, bootstrap_servers):
     _fetch_time = time.strftime("%Y-%m-%d %H:%M:%S")
     _partition_values = ",".join([f"'{row[metadata.partition_column_name]}'" for row in
                                   data_frame.select(metadata.partition_column_name).distinct().collect()])
-    _partition_time = time.strftime("%Y-%m-%d %H:%M:%S")
     _partition_cond = f"previous.{metadata.partition_column_name} IN ({_partition_values})"
     _merge_cond = " AND ".join(
         ["%s.%s = %s.%s" % ("previous", _column, "updates", _column) for _column in metadata.pks])
     _cond = f"{_partition_cond} AND {_merge_cond}"
-
+    _batch_size = data_frame.count()
+    # the head row is the "first" record from kafka topic, but it may NOT the earliest record. However, it is too
+    # expensive to seek the min timestamp of whole batch, so we take first record instead.
+    _kafka_time = data_frame.head()["timestamp"]
+    _partition_time = time.strftime("%Y-%m-%d %H:%M:%S")
     DeltaTable.forPath(spark, delta_path) \
         .alias("previous") \
         .merge(data_frame
@@ -64,9 +62,9 @@ def merge(spark, metadata, delta_path, data_frame, bootstrap_servers):
         .whenMatchedUpdateAll() \
         .whenNotMatchedInsertAll() \
         .execute()
-
+    _delta_time = time.strftime("%Y-%m-%d %H:%M:%S")
     # log the result for this batch
-    log(data_frame, bootstrap_servers, metadata, _partition_values, _fetch_time, _partition_time)
+    log(bootstrap_servers, metadata, _partition_values, _kafka_time, _fetch_time, _partition_time, _delta_time, _batch_size)
 
 
 def struct_type(metadata):
