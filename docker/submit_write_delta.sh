@@ -110,7 +110,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-checkOs
+# the non-local mode requires "--network=host", but it is unsupported by Mac OS
+if [[ "$master" != *"local"* ]]; then
+  checkOs
+fi
 requireFolder "$CODE_FOLDER"
 requireFolder "$METADATA_FOLDER"
 checkGen2Args "$gen2_account" "$gen2_container" "$gen2_key"
@@ -146,9 +149,14 @@ for meta_file in "$METADATA_FOLDER"/*.xml; do
     continue
   fi
   ui_port=$(($(($RANDOM%10000))+10000))
+  if [[ "$master" == *"local"* ]]; then
+    network_config="-p ${ui_port}:${ui_port}"
+  else
+    network_config="--network host"
+  fi
   docker run -d \
     --name $container_name \
-    --network host \
+    $network_config \
     $volume_configs \
     $IMAGE_NAME \
     ./bin/spark-submit \
