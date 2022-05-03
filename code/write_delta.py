@@ -3,7 +3,7 @@ import time
 from confluent_kafka import Producer
 from delta import DeltaTable
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_csv
+from pyspark.sql.functions import from_csv, col
 
 from utils import *
 
@@ -82,8 +82,7 @@ def run_topic_stream(spark, metadata, delta_path, bootstrap_servers):
         .option("maxOffsetsPerTrigger", f"{metadata.max_offsets_per_trigger}") \
         .option("subscribe", metadata.topic) \
         .load() \
-        .selectExpr("CAST(value AS STRING)", "timestamp") \
-        .withColumn("value", from_csv("value", struct_type(metadata).simpleString())) \
+        .withColumn("value", from_csv(col("value").cast("string"), struct_type(metadata).simpleString())) \
         .select("value.*", "timestamp") \
         .writeStream \
         .trigger(processingTime=f'{metadata.processing_time} seconds') \
