@@ -25,9 +25,7 @@ if __name__ == '__main__':
     _args = parse_arguments({"--topic": "the topic to trace",
                              "--bootstrap_servers": "broker address",
                              "--path": "the root folder of all delta tables",
-                             "--records": "the expected number of records",
                              "--show_records": "the number of records to show",
-                             "--display": "display all data in topic",
                              "--loop": "loop to show",
                              "--interval": "time to show next loop"})
 
@@ -65,14 +63,16 @@ if __name__ == '__main__':
             .option("startingOffsets", "earliest") \
             .load()
 
+        _max_offset = -1
         for i in range(0, _loop):
-            if _args.display:
-                _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "timestamp") \
-                    .orderBy("timestamp", ascending=False) \
-                    .show(show_records, truncate=False)
-
-            if _args.records:
-                until(int(_args.records), lambda: _df.count())
-            else:
-                print(f"there are {_df.count()} records in {_args.topic}")
+            _sorted = _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "timestamp",
+                                     "offset", "topic", "partition") \
+                .orderBy("offset", ascending=False)
+            if len(_sorted.head()) > 0:
+                _max = _sorted.head()["offset"]
+                # show data only if there are new data
+                if _max > _max_offset:
+                    _max_offset = _max
+                    _sorted.show(show_records, truncate=False)
+                    print(f"there are {_sorted.count()} records in {_args.topic}")
             time.sleep(_interval)
