@@ -27,7 +27,9 @@ if __name__ == '__main__':
                              "--path": "the root folder of all delta tables",
                              "--records": "the expected number of records",
                              "--show_records": "the number of records to show",
-                             "--display": "display all data in topic"})
+                             "--display": "display all data in topic",
+                             "--loop": "loop to show",
+                             "--interval": "time to show next loop"})
 
     if _args.path:
         _df = SparkSession.builder \
@@ -47,8 +49,14 @@ if __name__ == '__main__':
         show_records = int(_args.show_records)
 
     if _args.topic and _args.bootstrap_servers:
+        _loop = 1
+        if _args.loop:
+            _loop = int(_args.loop)
+        _interval = 1
+        if _args.interval:
+            _interval = int(_args.interval)
         _spark = SparkSession.builder.getOrCreate()
-        _spark.sparkContext.setLogLevel("WARN")
+        _spark.sparkContext.setLogLevel("ERROR")
         _df = _spark \
             .read \
             .format("kafka") \
@@ -57,12 +65,14 @@ if __name__ == '__main__':
             .option("startingOffsets", "earliest") \
             .load()
 
-        if _args.display:
-            _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "timestamp")\
-                .orderBy("timestamp", ascending=False)\
-                .show(show_records, truncate=False)
+        for i in range(0, _loop):
+            if _args.display:
+                _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "timestamp") \
+                    .orderBy("timestamp", ascending=False) \
+                    .show(show_records, truncate=False)
 
-        if _args.records:
-            until(int(_args.records), lambda: _df.count())
-        else:
-            print(f"there are {_df.count()} records in {_args.topic}")
+            if _args.records:
+                until(int(_args.records), lambda: _df.count())
+            else:
+                print(f"there are {_df.count()} records in {_args.topic}")
+            time.sleep(_interval)
