@@ -55,18 +55,17 @@ if __name__ == '__main__':
             _interval = int(_args.interval)
         _spark = SparkSession.builder.getOrCreate()
         _spark.sparkContext.setLogLevel("ERROR")
-        _df = _spark \
-            .read \
-            .format("kafka") \
-            .option("kafka.bootstrap.servers", _args.bootstrap_servers) \
-            .option("subscribe", _args.topic) \
-            .option("startingOffsets", "earliest") \
-            .load()
-
         _max_offset = -1
         for i in range(0, _loop):
-            _sorted = _df.selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "timestamp",
-                                     "offset", "topic", "partition") \
+            _sorted = _spark \
+                .read \
+                .format("kafka") \
+                .option("kafka.bootstrap.servers", _args.bootstrap_servers) \
+                .option("subscribe", _args.topic) \
+                .option("startingOffsets", "earliest") \
+                .load() \
+                .selectExpr("CAST(key as STRING)", "CAST(value AS STRING)", "timestamp",
+                            "offset", "topic", "partition") \
                 .orderBy("offset", ascending=False)
             if len(_sorted.head()) > 0:
                 _max = _sorted.head()["offset"]
