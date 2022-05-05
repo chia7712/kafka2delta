@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
 
     if _args.bootstrap_servers:
-        if _args.dedup:
+        if _args.dedup and _args.dedup.lower() == "true":
             ds = SparkSession.builder.getOrCreate().readStream \
                 .format("kafka") \
                 .option("kafka.bootstrap.servers", _args.bootstrap_servers) \
