@@ -50,6 +50,7 @@ def write_to_kafka(df, metadata, brokers):
         .format("kafka") \
         .option("kafka.bootstrap.servers", brokers) \
         .option("kafka.compression.type", "zstd") \
+        .option("kafka.enable.idempotence", "true") \
         .option("topic", metadata.topic) \
         .save()
 
