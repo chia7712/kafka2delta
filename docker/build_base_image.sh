@@ -14,7 +14,7 @@ declare -r DOCKERFILE=$BASE_DOCKERFILE
 # ===================================[functions]===================================
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu AS build
+FROM ubuntu:22.04 AS build
 
 RUN apt-get update && apt-get install -y wget zip openjdk-11-jre
 
