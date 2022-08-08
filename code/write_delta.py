@@ -9,12 +9,17 @@ from utils import *
 
 
 def create_delta_table(spark, delta_path, metadata):
-    # add the partition column (it is different from partition_by)
-    DeltaTable.createIfNotExists(spark).location(delta_path) \
-        .addColumns(metadata.struct_fields) \
-        .addColumn(metadata.partition_column_name, metadata.partition_column_type, nullable=True) \
-        .partitionedBy(metadata.partition_column_name, metadata.partition_column_name) \
-        .execute()
+    if metadata.partition_by is None:
+        DeltaTable.createIfNotExists(spark).location(delta_path) \
+            .addColumns(metadata.struct_fields) \
+            .execute()
+    else:
+        # add the partition column (it is different from partition_by)
+        DeltaTable.createIfNotExists(spark).location(delta_path) \
+            .addColumns(metadata.struct_fields) \
+            .addColumn(metadata.partition_column_name, metadata.partition_column_type, nullable=True) \
+            .partitionedBy(metadata.partition_column_name, metadata.partition_column_name) \
+            .execute()
 
 
 def log(bootstrap_servers, metadata, partition_values, kafka_time, fetch_time, partition_time, delta_time, batch_size):
@@ -41,12 +46,16 @@ def merge(spark, metadata, delta_path, data_frame, bootstrap_servers):
     if len(data_frame.head(1)) == 0:
         return
     _fetch_time = time.strftime("%Y-%m-%d %H:%M:%S")
-    _partition_values = ",".join([f"'{row[metadata.partition_column_name]}'" for row in
-                                  data_frame.select(metadata.partition_column_name).distinct().collect()])
-    _partition_cond = f"previous.{metadata.partition_column_name} IN ({_partition_values})"
     _merge_cond = " AND ".join(
         ["%s.%s = %s.%s" % ("previous", _column, "updates", _column) for _column in metadata.pks])
-    _cond = f"{_partition_cond} AND {_merge_cond}"
+    if metadata.partition_by is None:
+        _partition_values = ""
+        _cond = f"{_merge_cond}"
+    else:
+        _partition_values = ",".join([f"'{row[metadata.partition_column_name]}'" for row in
+                                      data_frame.select(metadata.partition_column_name).distinct().collect()])
+        _partition_cond = f"previous.{metadata.partition_column_name} IN ({_partition_values})"
+        _cond = f"{_partition_cond} AND {_merge_cond}"
     _batch_size = data_frame.count()
     # the head row is the "first" record from kafka topic, but it may NOT the earliest record. However, it is too
     # expensive to seek the min timestamp of whole batch, so we take first record instead.
@@ -64,13 +73,17 @@ def merge(spark, metadata, delta_path, data_frame, bootstrap_servers):
         .execute()
     _delta_time = time.strftime("%Y-%m-%d %H:%M:%S")
     # log the result for this batch
-    log(bootstrap_servers, metadata, _partition_values, _kafka_time, _fetch_time, _partition_time, _delta_time, _batch_size)
+    log(bootstrap_servers, metadata, _partition_values, _kafka_time, _fetch_time, _partition_time, _delta_time,
+        _batch_size)
 
 
 def struct_type(metadata):
-    # the partition column is already in kafka record (csv), so we have to add it now to parse csv correctly
-    return StructType(metadata.struct_fields) \
-        .add(metadata.partition_column_name, metadata.partition_column_type, nullable=True)
+    if metadata.partition_by is None:
+        return StructType(metadata.struct_fields)
+    else:
+        # the partition column is already in kafka record (csv), so we have to add it now to parse csv correctly
+        return StructType(metadata.struct_fields) \
+            .add(metadata.partition_column_name, metadata.partition_column_type, nullable=True)
 
 
 def run_topic_stream(spark, metadata, delta_path, bootstrap_servers):

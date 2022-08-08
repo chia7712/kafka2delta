@@ -164,14 +164,16 @@ def read_metadata(path):
             raise ValueError(f"length of types {len(_data_types)} is not equal to columns ({len(_columns)})")
 
         # for delta table partition
-        if _child.find("partitionBy") is None or _child.find("partitionBy").text is None:
-            raise ValueError(f"partitionBy is required")
-        _partition_by = _child.find("partitionBy").text.strip().lower()
+        _partition_by = None
+        if _child.find("partitionBy") is not None or _child.find("partitionBy").text is not None:
+            _partition_by = _child.find("partitionBy").text.strip().lower()
 
-        if _partition_by not in _columns:
+        # partition column must be a part of columns
+        if _partition_by is not None and _partition_by not in _columns:
             raise ValueError(f"partitionBy column: {_partition_by} is not in columns: {_columns}")
 
-        if not isinstance(_data_types[_partition_by], TimestampType):
+        # type of partition column must be Timestamp
+        if _partition_by is not None and not isinstance(_data_types[_partition_by], TimestampType):
             raise ValueError(f"the type of {_partition_by} (partition column) should be Timestamp")
 
         # kafka compaction

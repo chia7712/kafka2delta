@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <tableInfos>
-    <table name="table">
-        <csvFolder>table</csvFolder>
-        <topic>table</topic>
-        <deltaFolder>table</deltaFolder>
-        <columns>id,created_timestamp,modified_timestamp,account,money</columns>
-        <pks>id</pks>
-        <types>long,timestamp,timestamp,str,long</types>
-        <partitionBy>created_timestamp</partitionBy>
-        <orderBy>modified_timestamp</orderBy>
+    <table name="l8b_array_c_eqp_eqpt_mst">
+        <csvFolder>l8b_array_c_eqp_eqpt_mst</csvFolder>
+        <topic>l8b_array_c_eqp_eqpt_mst</topic>
+        <deltaFolder>l8b_array_c_eqp_eqpt_mst</deltaFolder>
+        <columns>EQP_RRN,EQP_AREA_DESC,CREATE_TIMESTAMP,SITE_ID,EQP_ID,EQP_DESC,PARENT_EQP_ID,EQP_CAT,DEPARTMENT,EQP_BAY,STD_TACT_TIME,STD_LEAD_TIME,STD_PROCESS_TIME,STD_UTIL,STD_EFF</columns>
+        <pks>EQP_RRN,EQP_AREA_DESC,CREATE_TIMESTAMP</pks>
+        <types>StringType,StringType,TimestampType,StringType,StringType,StringType,StringType,StringType,StringType,StringType,LongType,LongType,LongType,LongType,LongType</types>
+        <partitionBy>CREATE_TIMESTAMP</partitionBy>
+        <orderBy>CREATE_TIMESTAMP</orderBy>
         <partitions>10</partitions>
-        <compact>true</compact>
+        <compact>ture</compact>
     </table>
 </tableInfos>
+

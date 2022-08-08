@@ -56,20 +56,32 @@ def write_to_kafka(df, metadata, brokers):
 
 
 def run_csv_stream(spark, csv_source, archive_path, metadata, brokers):
-    # we addd partition data and column according to partition_by now. It will add some cost (larger kafka record),
-    # but it can save the time of calculating partition data when merging delta data. Also, the schema in kafka
-    # can be consistent with delta table.
-    spark.readStream \
-        .schema(all_string_types(metadata.columns)) \
-        .option("recursiveFileLookup", "true") \
-        .option("cleanSource", "archive") \
-        .option("sourceArchiveDir", archive_path) \
-        .option("spark.sql.streaming.fileSource.cleaner.numThreads", "3") \
-        .csv(csv_source) \
-        .withColumn(metadata.partition_column_name, to_date(col(metadata.partition_by))) \
-        .writeStream \
-        .foreachBatch(lambda df, _: write_to_kafka(df, metadata, brokers)) \
-        .start()
+    if metadata.partition_by is None:
+        spark.readStream \
+            .schema(all_string_types(metadata.columns)) \
+            .option("recursiveFileLookup", "true") \
+            .option("cleanSource", "archive") \
+            .option("sourceArchiveDir", archive_path) \
+            .option("spark.sql.streaming.fileSource.cleaner.numThreads", "3") \
+            .csv(csv_source) \
+            .writeStream \
+            .foreachBatch(lambda df, _: write_to_kafka(df, metadata, brokers)) \
+            .start()
+    else:
+        # we addd partition data and column according to partition_by now. It will add some cost (larger kafka record),
+        # but it can save the time of calculating partition data when merging delta data. Also, the schema in kafka
+        # can be consistent with delta table.
+        spark.readStream \
+            .schema(all_string_types(metadata.columns)) \
+            .option("recursiveFileLookup", "true") \
+            .option("cleanSource", "archive") \
+            .option("sourceArchiveDir", archive_path) \
+            .option("spark.sql.streaming.fileSource.cleaner.numThreads", "3") \
+            .csv(csv_source) \
+            .withColumn(metadata.partition_column_name, to_date(col(metadata.partition_by))) \
+            .writeStream \
+            .foreachBatch(lambda df, _: write_to_kafka(df, metadata, brokers)) \
+            .start()
 
 
 if __name__ == '__main__':
